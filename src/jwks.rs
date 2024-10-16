@@ -4,8 +4,11 @@ use jsonwebtoken::{
     DecodingKey,
 };
 use log::{info, warn};
-use std::{collections::HashMap, sync::Arc, time::Duration};
-use tokio::{sync::RwLock, time};
+use std::{collections::HashMap, sync::Arc};
+use tokio::{
+    sync::RwLock,
+    time::{self, Duration},
+};
 
 use crate::error::JwkError;
 

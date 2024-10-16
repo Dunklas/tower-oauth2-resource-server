@@ -21,7 +21,7 @@ mod tests {
         let raw_claims = "{ \"aud\": \"single\" }";
         let claims: DefaultClaims = serde_json::from_str(raw_claims).unwrap();
         assert_eq!(claims.aud.len(), 1);
-        assert_eq!(claims.aud.get(0).unwrap(), "single");
+        assert_eq!(claims.aud.first().unwrap(), "single");
     }
 
     #[test]
@@ -29,7 +29,7 @@ mod tests {
         let raw_claims = "{ \"aud\": [\"first\", \"second\"] }";
         let claims: DefaultClaims = serde_json::from_str(raw_claims).unwrap();
         assert_eq!(claims.aud.len(), 2);
-        assert_eq!(claims.aud.get(0).unwrap(), "first");
+        assert_eq!(claims.aud.first().unwrap(), "first");
         assert_eq!(claims.aud.get(1).unwrap(), "second");
     }
 }

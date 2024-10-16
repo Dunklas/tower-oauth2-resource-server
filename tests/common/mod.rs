@@ -43,7 +43,7 @@ pub async fn mock_oidc_config(mock_server: &MockServer, issuer: &str) {
             issuer: issuer.to_owned(),
             jwks_uri: format!("{}/jwks", &mock_server.uri()),
         }))
-        .mount(&mock_server)
+        .mount(mock_server)
         .await;
 }
 
@@ -62,7 +62,7 @@ pub async fn mock_jwks(mock_server: &MockServer, keys: Vec<(String, RsaPublicKey
     Mock::given(method("GET"))
         .and(path("/jwks"))
         .respond_with(ResponseTemplate::new(200).set_body_json(Jwks { keys }))
-        .mount(&mock_server)
+        .mount(mock_server)
         .await;
 }
 

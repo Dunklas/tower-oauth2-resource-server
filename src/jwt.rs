@@ -136,8 +136,6 @@ mod tests {
         ));
     }
 
-    // TODO: All tests for jwt extraction
-
     #[tokio::test]
     async fn empty_token() {
         let validator = create_validator(ClaimsValidationSpec::new());

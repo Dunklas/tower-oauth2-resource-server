@@ -15,7 +15,6 @@ pub(crate) struct OidcConfigProvider {
 
 impl OidcConfigProvider {
     pub fn from_issuer_uri(issuer_uri: &str) -> Result<Self, Box<dyn Error>> {
-        // TODO: Attempt with multiple url's, or take a specific openid-configuration url
         Ok(OidcConfigProvider {
             config: ureq::get(&format!("{}/.well-known/openid-configuration", issuer_uri))
                 .call()?

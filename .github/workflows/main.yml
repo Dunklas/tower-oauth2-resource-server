@@ -1,0 +1,18 @@
+name: main
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo fmt --all --check
+      - run: cargo clippy --all-targets --all-features -- --deny warnings
+      - run: cargo test

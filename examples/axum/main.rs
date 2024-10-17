@@ -18,8 +18,8 @@ async fn main() {
         oidc_provider_host, oidc_provider_port
     );
 
-    let auth_manager = <OAuth2ResourceServer>::builder()
-        .audiences(vec![])
+    let oauth2_resource_server = <OAuth2ResourceServer>::builder()
+        .audiences(vec!["tors-example".to_owned()])
         .issuer_uri(&format!(
             "http://{}:{}/realms/tors",
             oidc_provider_host, oidc_provider_port
@@ -29,7 +29,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(root))
-        .layer(ServiceBuilder::new().layer(auth_manager.into_layer()));
+        .layer(ServiceBuilder::new().layer(oauth2_resource_server.into_layer()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     axum::serve(listener, app)

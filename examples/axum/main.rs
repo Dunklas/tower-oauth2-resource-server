@@ -5,7 +5,7 @@ mod util;
 
 #[tokio::main]
 async fn main() {
-    util::start_oidc_provider();
+    let oidc_provider = util::start_oidc_provider().await;
     let app = Router::new().route("/", get(root));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();

@@ -1,6 +1,6 @@
 {
   "id" : "bddc92b2-99a8-40a1-b01a-fba0e5c02c40",
-  "realm" : "master",
+  "realm" : "tors",
   "displayName" : "Keycloak",
   "displayNameHtml" : "<div class=\"kc-logo-text\"><span>Keycloak</span></div>",
   "notBefore" : 0,
@@ -65,7 +65,7 @@
       "attributes" : { }
     }, {
       "id" : "7105fafd-3ac1-40b0-914b-b1758d2218a1",
-      "name" : "default-roles-master",
+      "name" : "default-roles-tors",
       "description" : "${role_default-roles}",
       "composite" : true,
       "composites" : {
@@ -93,7 +93,7 @@
       "composites" : {
         "realm" : [ "create-realm" ],
         "client" : {
-          "master-realm" : [ "view-users", "view-events", "manage-users", "query-groups", "query-clients", "view-identity-providers", "manage-realm", "view-realm", "query-users", "create-client", "view-clients", "manage-identity-providers", "query-realms", "manage-clients", "manage-events", "manage-authorization", "impersonation", "view-authorization" ]
+          "tors-realm" : [ "view-users", "view-events", "manage-users", "query-groups", "query-clients", "view-identity-providers", "manage-realm", "view-realm", "query-users", "create-client", "view-clients", "manage-identity-providers", "query-realms", "manage-clients", "manage-events", "manage-authorization", "impersonation", "view-authorization" ]
         }
       },
       "clientRole" : false,
@@ -113,14 +113,14 @@
         "containerId" : "1772f5ef-060e-414e-bd54-4f1802d3d96c",
         "attributes" : { }
       } ],
-      "master-realm" : [ {
+      "tors-realm" : [ {
         "id" : "2585f3d7-638b-49bf-8a95-6a01195859df",
         "name" : "view-users",
         "description" : "${role_view-users}",
         "composite" : true,
         "composites" : {
           "client" : {
-            "master-realm" : [ "query-groups", "query-users" ]
+            "tors-realm" : [ "query-groups", "query-users" ]
           }
         },
         "clientRole" : true,
@@ -205,7 +205,7 @@
         "composite" : true,
         "composites" : {
           "client" : {
-            "master-realm" : [ "query-clients" ]
+            "tors-realm" : [ "query-clients" ]
           }
         },
         "clientRole" : true,
@@ -349,7 +349,7 @@
   "groups" : [ ],
   "defaultRole" : {
     "id" : "7105fafd-3ac1-40b0-914b-b1758d2218a1",
-    "name" : "default-roles-master",
+    "name" : "default-roles-tors",
     "description" : "${role_default-roles}",
     "composite" : true,
     "clientRole" : false,
@@ -406,7 +406,7 @@
     } ],
     "disableableCredentialTypes" : [ ],
     "requiredActions" : [ ],
-    "realmRoles" : [ "default-roles-master", "admin" ],
+    "realmRoles" : [ "default-roles-tors", "admin" ],
     "notBefore" : 0,
     "groups" : [ ]
   }, {
@@ -429,7 +429,7 @@
     } ],
     "disableableCredentialTypes" : [ ],
     "requiredActions" : [ ],
-    "realmRoles" : [ "default-roles-master" ],
+    "realmRoles" : [ "default-roles-tors" ],
     "notBefore" : 0,
     "groups" : [ ]
   } ],
@@ -448,12 +448,12 @@
     "clientId" : "account",
     "name" : "${client_account}",
     "rootUrl" : "${authBaseUrl}",
-    "baseUrl" : "/realms/master/account/",
+    "baseUrl" : "/realms/tors/account/",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "redirectUris" : [ "/realms/master/account/*" ],
+    "redirectUris" : [ "/realms/tors/account/*" ],
     "webOrigins" : [ ],
     "notBefore" : 0,
     "bearerOnly" : false,
@@ -479,12 +479,12 @@
     "clientId" : "account-console",
     "name" : "${client_account-console}",
     "rootUrl" : "${authBaseUrl}",
-    "baseUrl" : "/realms/master/account/",
+    "baseUrl" : "/realms/tors/account/",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "redirectUris" : [ "/realms/master/account/*" ],
+    "redirectUris" : [ "/realms/tors/account/*" ],
     "webOrigins" : [ ],
     "notBefore" : 0,
     "bearerOnly" : false,
@@ -573,8 +573,8 @@
     "optionalClientScopes" : [ "address", "phone", "offline_access", "organization", "microprofile-jwt" ]
   }, {
     "id" : "d01c4dbe-f900-4a03-bd61-ac2af9598af3",
-    "clientId" : "master-realm",
-    "name" : "master Realm",
+    "clientId" : "tors-realm",
+    "name" : "tors Realm",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
@@ -603,12 +603,12 @@
     "clientId" : "security-admin-console",
     "name" : "${client_security-admin-console}",
     "rootUrl" : "${authAdminUrl}",
-    "baseUrl" : "/admin/master/console/",
+    "baseUrl" : "/admin/tors/console/",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "redirectUris" : [ "/admin/master/console/*" ],
+    "redirectUris" : [ "/admin/tors/console/*" ],
     "webOrigins" : [ "+" ],
     "notBefore" : 0,
     "bearerOnly" : false,

@@ -25,5 +25,8 @@ mockall = "0.12.1"
 rand = "0.8.5"
 rsa = "0.9.6"
 serde_json = "1.0.117"
+tokio = { version = "1.40.0", features = ["rt-multi-thread" ] }
 tower = { version = "0.4.13", features = ["util"] }
 wiremock = "0.6.0"
+axum = "0.7.7"
+testcontainers = "0.23.1"

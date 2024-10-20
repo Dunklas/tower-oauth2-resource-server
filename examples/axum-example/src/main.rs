@@ -4,9 +4,6 @@ use tokio::signal;
 use tower::ServiceBuilder;
 use tower_oauth2_resource_server::server::OAuth2ResourceServer;
 
-#[path = "../util/lib.rs"]
-mod util;
-
 #[tokio::main]
 async fn main() {
     env_logger::init();

@@ -7,25 +7,7 @@ resolver = "2"
 rust-version = "1.75"
 
 [workspace.dependencies]
-async-trait = "0.1.83"
-futures-util = "0.3.30"
-http = "1.1.0"
-jsonwebtoken = "9.3.0"
 log = "0.4.22"
-pin-project = "1.1.5"
-serde = "1.0.210"
-serde_with = "3.9.0"
-tokio = { version = "1.40.0", features = ["rt", "sync", "time"] }
-tower = { version = "0.4.13" }
-ureq = { version = "2.9.7", features = ["json"] }
-
-base64 = "0.22.1"
-http-body-util = "0.1.2"
-bytes = "1.6.0"
-lazy_static = "1.4.0"
-mockall = "0.12.1"
-rand = "0.8.5"
-rsa = "0.9.6"
-serde_json = "1.0.117"
-wiremock = "0.6.0"
+tokio = "1.40.0"
+tower = "0.4.13"
 env_logger = "0.11.5"

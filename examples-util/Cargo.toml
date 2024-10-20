@@ -1,0 +1,6 @@
+[package]
+name = "examples-util"
+edition = "2021"
+
+[dependencies]
+testcontainers = "0.23.1"

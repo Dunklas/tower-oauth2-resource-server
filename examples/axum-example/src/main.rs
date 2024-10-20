@@ -7,7 +7,7 @@ use tower_oauth2_resource_server::server::OAuth2ResourceServer;
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let oidc_provider = util::start_oidc_provider().await;
+    let oidc_provider = examples_util::start_oidc_provider().await;
     let oidc_provider_host = oidc_provider.get_host().await.unwrap();
     let oidc_provider_port = oidc_provider.get_host_port_ipv4(8080).await.unwrap();
     info!(

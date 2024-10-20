@@ -1,5 +1,5 @@
 [package]
-name = "util"
+name = "examples-util"
 edition = "2021"
 
 [dependencies]

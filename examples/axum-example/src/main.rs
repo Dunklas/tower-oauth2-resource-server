@@ -10,10 +10,7 @@ async fn main() {
     let oidc_provider = examples_util::start_oidc_provider().await;
     let oidc_provider_host = oidc_provider.get_host().await.unwrap();
     let oidc_provider_port = oidc_provider.get_host_port_ipv4(8080).await.unwrap();
-    info!(
-        "Running local OIDC provider on: {}:{}",
-        oidc_provider_host, oidc_provider_port
-    );
+    info!("Running OIDC provider on port: {}", oidc_provider_port);
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
         .audiences(vec!["tors-example".to_owned()])
@@ -29,6 +26,7 @@ async fn main() {
         .layer(ServiceBuilder::new().layer(oauth2_resource_server.into_layer()));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    info!("Running axum on port: 3000");
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await

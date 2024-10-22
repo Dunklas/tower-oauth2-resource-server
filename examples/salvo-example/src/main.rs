@@ -1,5 +1,6 @@
 use log::info;
-use salvo::prelude::*;
+use salvo::{prelude::*, server::ServerHandle};
+use tokio::signal;
 use tower_oauth2_resource_server::{claims::DefaultClaims, server::OAuth2ResourceServer};
 
 #[tokio::main]
@@ -23,8 +24,12 @@ async fn main() {
         .hoop(oauth2_resource_server.into_layer().compat())
         .get(hello);
     let acceptor = TcpListener::new("127.0.0.1:3000").bind().await;
+    let server = Server::new(acceptor);
+    let handle = server.handle();
+
+    tokio::spawn(listen_shutdown_signal(handle));
     info!("Running salvo on port: 3000");
-    Server::new(acceptor).serve(router).await;
+    server.serve(router).await;
 }
 
 #[handler]
@@ -44,4 +49,37 @@ async fn hello(req: &mut Request, res: &mut Response) {
     };
     res.status_code(StatusCode::OK);
     res.render(format!("Hello, {}", sub));
+}
+
+async fn listen_shutdown_signal(handle: ServerHandle) {
+    // Wait Shutdown Signal
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(windows)]
+    let terminate = async {
+        signal::windows::ctrl_c()
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    tokio::select! {
+        _ = ctrl_c => println!("ctrl_c signal received"),
+        _ = terminate => println!("terminate signal received"),
+    };
+
+    // Graceful Shutdown Server
+    handle.stop_graceful(None);
 }

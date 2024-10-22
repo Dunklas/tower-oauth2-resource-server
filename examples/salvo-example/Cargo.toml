@@ -1,0 +1,13 @@
+[package]
+name = "salvo-example"
+edition = "2021"
+
+[dependencies]
+tower-oauth2-resource-server = { path = "../../tower-oauth2-resource-server" }
+examples-util = { path = "../../examples-util" }
+
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
+log = { workspace = true }
+tower = { workspace = true }
+env_logger = { workspace = true }
+salvo = "0.73.0"

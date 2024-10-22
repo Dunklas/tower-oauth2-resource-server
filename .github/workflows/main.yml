@@ -15,7 +15,7 @@ jobs:
           components: clippy
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets --all-features -- --deny warnings
-      - run: cargo test --workspace
+      - run: cargo test
   build:
     runs-on: ubuntu-latest
     steps:

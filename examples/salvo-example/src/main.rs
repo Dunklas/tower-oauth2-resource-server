@@ -28,6 +28,7 @@ async fn main() {
     let handle = server.handle();
 
     tokio::spawn(listen_shutdown_signal(handle));
+
     info!("Running salvo on port: 3000");
     server.serve(router).await;
 }

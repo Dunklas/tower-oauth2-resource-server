@@ -4,6 +4,7 @@ use tower::ServiceBuilder;
 
 use hello_world::greeter_server::{Greeter, GreeterServer};
 use hello_world::{HelloReply, HelloRequest};
+use tower_oauth2_resource_server::claims::DefaultClaims;
 use tower_oauth2_resource_server::server::OAuth2ResourceServer;
 
 pub mod hello_world {
@@ -54,15 +55,22 @@ pub struct MyGreeter {}
 impl Greeter for MyGreeter {
     async fn say_hello(
         &self,
-        request: Request<HelloRequest>, // Accept request of type HelloRequest
+        request: Request<HelloRequest>,
     ) -> Result<Response<HelloReply>, Status> {
-        // Return an instance of type HelloReply
+        let claims = request
+            .extensions()
+            .get::<DefaultClaims>()
+            .ok_or(Status::internal("Failed to obtain JWT claims"))?;
+        let sub = claims
+            .sub
+            .as_ref()
+            .ok_or(Status::internal("Missing sub claim in JWT"))?;
         println!("Got a request: {:?}", request);
 
         let reply = HelloReply {
-            message: format!("Hello {}!", request.into_inner().name), // We must use .into_inner() as the fields of gRPC requests and responses are private
+            message: format!("Hello {}!", sub),
         };
 
-        Ok(Response::new(reply)) // Send back our formatted greeting
+        Ok(Response::new(reply))
     }
 }

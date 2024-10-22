@@ -17,10 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let oidc_provider = examples_util::start_oidc_provider().await;
     let oidc_provider_host = oidc_provider.get_host().await.unwrap();
     let oidc_provider_port = oidc_provider.get_host_port_ipv4(8080).await.unwrap();
-    info!(
-        "Running local OIDC provider on: {}:{}",
-        oidc_provider_host, oidc_provider_port
-    );
+    info!("Running OIDC provider on port: {}", oidc_provider_port);
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
         .audiences(vec!["tors-example".to_owned()])
@@ -34,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
     let greeter = MyGreeter::default();
 
-    info!("Starting tonic on port 50051");
+    info!("Running tonic on port: 50051");
     Server::builder()
         .layer(
             ServiceBuilder::new()

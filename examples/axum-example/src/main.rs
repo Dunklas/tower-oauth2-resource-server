@@ -1,8 +1,8 @@
-use axum::{routing::get, Router};
+use axum::{http::StatusCode, routing::get, Extension, Router};
 use log::info;
 use tokio::signal;
 use tower::ServiceBuilder;
-use tower_oauth2_resource_server::server::OAuth2ResourceServer;
+use tower_oauth2_resource_server::{claims::DefaultClaims, server::OAuth2ResourceServer};
 
 #[tokio::main]
 async fn main() {
@@ -35,8 +35,12 @@ async fn main() {
         .unwrap();
 }
 
-async fn root() -> &'static str {
-    "Hello, World!"
+async fn root(claims: Extension<DefaultClaims>) -> Result<(StatusCode, String), StatusCode> {
+    let sub = claims
+        .sub
+        .as_ref()
+        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok((StatusCode::OK, format!("Hello, {}", sub)))
 }
 
 async fn shutdown_signal() {

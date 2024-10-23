@@ -8,7 +8,7 @@ examples-util = { path = "../../examples-util" }
 
 tonic = "0.12"
 prost = "0.13"
-tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
 log = { workspace = true }
 tower = { workspace = true }
 env_logger = { workspace = true }

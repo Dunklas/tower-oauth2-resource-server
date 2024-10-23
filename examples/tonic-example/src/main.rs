@@ -1,4 +1,5 @@
 use log::info;
+use tokio::signal;
 use tonic::{transport::Server, Request, Response, Status};
 use tower::ServiceBuilder;
 
@@ -39,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_inner(),
         )
         .add_service(GreeterServer::new(greeter))
-        .serve(addr)
+        .serve_with_shutdown(addr, shutdown_signal())
         .await?;
 
     Ok(())
@@ -69,5 +70,29 @@ impl Greeter for MyGreeter {
         };
 
         Ok(Response::new(reply))
+    }
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
     }
 }

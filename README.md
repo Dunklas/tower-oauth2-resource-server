@@ -4,6 +4,18 @@ Tower middleware that provides JWT authorization against an OpenID Connect (OIDC
 
 Main inspiration for this middleware (both in naming and functionality) is [Spring Security OAuth 2.0 Resource Server](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/index.html).
 
+## Configuration
+
+The `issuer_uri` property is used to configure what authorization server to use.
+
+On startup, the OIDC Provider Configuration endpoint (`<issuer_uri>/.well-known/openid-configuration`) will be queried in order to self-configure the middleware.
+A consequence of this is that the authorization server must be available when the middleware is started.
+
+In cases where the middleware must be able to start independently from the authorization server, the `jwks_uri` property can be set.
+This will prevent the self-configuration on start up.
+
+**Note** that it's still required to provide `issuer_uri`, since it's used to validate the `iss` claim in JWTs.
+
 ## Example usage
 
 Check the [examples](./examples/).

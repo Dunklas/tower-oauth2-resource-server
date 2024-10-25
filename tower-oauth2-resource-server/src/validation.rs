@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use crate::oidc::OidcConfig;
-
 #[derive(Debug, Default)]
 pub struct ClaimsValidationSpec {
     pub iss: Option<String>,
@@ -17,25 +15,6 @@ impl ClaimsValidationSpec {
 
     pub fn recommended(issuer: &str, audiences: Vec<String>) -> Self {
         Self::new().exp(true).nbf(true).iss(issuer).aud(audiences)
-    }
-
-    pub(crate) fn from_oidc_config(oidc_config: &OidcConfig, audiences: &[String]) -> Option<Self> {
-        match &oidc_config.claims_supported {
-            Some(claims_supported) => {
-                let mut spec = ClaimsValidationSpec::new().exp(true);
-                if claims_supported.contains(&"iss".to_owned()) {
-                    spec = spec.iss(&oidc_config.issuer);
-                }
-                if claims_supported.contains(&"nbf".to_owned()) {
-                    spec = spec.nbf(true);
-                }
-                if claims_supported.contains(&"aud".to_owned()) {
-                    spec = spec.aud(audiences.iter().map(|a| a.to_string()).collect());
-                }
-                Some(spec)
-            }
-            None => None,
-        }
     }
 
     pub fn iss(mut self, issuer: &str) -> Self {

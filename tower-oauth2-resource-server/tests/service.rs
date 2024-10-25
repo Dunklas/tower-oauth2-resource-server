@@ -19,7 +19,7 @@ async fn unauthorized_on_missing_authorization() {
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "").await;
     let mut service = ServiceBuilder::new()
-        .layer(default_auth_layer(&mock_server, Vec::new()))
+        .layer(default_auth_layer(&mock_server, Vec::new()).await)
         .service_fn(echo);
 
     let request = request_with_headers(Vec::new());
@@ -40,7 +40,7 @@ async fn unauthorized_on_invalid_authorization() {
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "").await;
     let mut service = ServiceBuilder::new()
-        .layer(default_auth_layer(&mock_server, Vec::new()))
+        .layer(default_auth_layer(&mock_server, Vec::new()).await)
         .service_fn(echo);
 
     let request = request_with_headers(vec![(AUTHORIZATION, "NotAJWT")]);
@@ -63,10 +63,13 @@ async fn unauthorized_on_token_validation_failure() {
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
     mock_jwks(&mock_server, [("good_key".to_owned(), public_key)].to_vec()).await;
     let mut service = ServiceBuilder::new()
-        .layer(default_auth_layer(
-            &mock_server,
-            ["https://some-resource-server.com".to_owned()].to_vec(),
-        ))
+        .layer(
+            default_auth_layer(
+                &mock_server,
+                ["https://some-resource-server.com".to_owned()].to_vec(),
+            )
+            .await,
+        )
         .service_fn(echo);
 
     let token = jwt_from(
@@ -93,10 +96,13 @@ async fn ok() {
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
     mock_jwks(&mock_server, [("good_key".to_owned(), public_key)].to_vec()).await;
     let mut service = ServiceBuilder::new()
-        .layer(default_auth_layer(
-            &mock_server,
-            ["https://some-resource-server.com".to_owned()].to_vec(),
-        ))
+        .layer(
+            default_auth_layer(
+                &mock_server,
+                ["https://some-resource-server.com".to_owned()].to_vec(),
+            )
+            .await,
+        )
         .service_fn(echo);
     // Needed for initial jwks fetch
     sleep(Duration::from_millis(100)).await;
@@ -118,7 +124,7 @@ async fn ok() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-fn default_auth_layer(
+async fn default_auth_layer(
     mock_server: &MockServer,
     audiences: Vec<String>,
 ) -> OAuth2ResourceServerLayer<DefaultClaims> {
@@ -126,6 +132,7 @@ fn default_auth_layer(
         .issuer_uri(&mock_server.uri())
         .audiences(audiences)
         .build()
+        .await
         .expect("Failed to build OAuth2ResourceServer")
         .into_layer()
 }

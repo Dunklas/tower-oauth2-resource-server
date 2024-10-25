@@ -1,6 +1,12 @@
 use http::{header::WWW_AUTHENTICATE, HeaderValue, Response, StatusCode};
 
 #[derive(Debug)]
+pub enum StartupError {
+    InvalidParameter(String),
+    OidcDiscoveryFailed,
+}
+
+#[derive(Debug)]
 pub enum JwkError {
     FetchFailed,
     ParseFailed,

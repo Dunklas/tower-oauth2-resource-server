@@ -19,6 +19,7 @@ async fn main() {
             oidc_provider_host, oidc_provider_port
         ))
         .build()
+        .await
         .expect("Failed to build OAuth2ResourceServer");
 
     let app = Router::new()

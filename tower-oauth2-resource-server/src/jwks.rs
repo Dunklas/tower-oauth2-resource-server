@@ -76,11 +76,10 @@ impl DecodingKeysProvider for JwksDecodingKeysProvider {
 }
 
 async fn fetch_jwks(jwks_uri: &str) -> Result<JwkSet, JwkError> {
-    let response = ureq::get(jwks_uri)
-        .call()
+    let response = reqwest::get(jwks_uri).await
         .map_err(|_| JwkError::FetchFailed)?;
     let parsed = response
-        .into_json::<JwkSet>()
+        .json::<JwkSet>().await
         .map_err(|_| JwkError::ParseFailed)?;
     Ok(parsed)
 }

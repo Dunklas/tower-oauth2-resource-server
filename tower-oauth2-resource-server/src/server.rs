@@ -29,13 +29,15 @@ where
         OAuth2ResourceServerBuilder::new()
     }
 
-    pub(crate) fn new(
+    pub(crate) async fn new(
         issuer_uri: String,
         audiences: Vec<String>,
         jwk_set_refresh_interval: Duration,
         claims_validation_spec: Option<ClaimsValidationSpec>,
     ) -> Result<OAuth2ResourceServer<Claims>, Box<dyn Error>> {
-        let config = OidcConfigProvider::from_issuer_uri(&issuer_uri)?.config;
+        let config = OidcConfigProvider::from_issuer_uri(&issuer_uri)
+            .await?
+            .config;
         info!(
             "Successfully fetched oidc config for issuer: {:?}",
             &issuer_uri
@@ -137,7 +139,7 @@ where
         self
     }
 
-    pub fn build(self) -> Result<OAuth2ResourceServer<Claims>, Box<dyn Error>> {
+    pub async fn build(self) -> Result<OAuth2ResourceServer<Claims>, Box<dyn Error>> {
         let issuer_uri = self
             .issuer_uri
             .ok_or(InvalidParametersError::new("issuer_uri is required"))?;
@@ -147,6 +149,7 @@ where
             self.jwk_set_refresh_interval,
             self.claims_validation_spec,
         )
+        .await
     }
 }
 

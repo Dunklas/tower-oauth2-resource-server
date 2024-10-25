@@ -14,11 +14,21 @@ pub(crate) struct OidcConfigProvider {
 }
 
 impl OidcConfigProvider {
-    pub fn from_issuer_uri(issuer_uri: &str) -> Result<Self, Box<dyn Error>> {
-        Ok(OidcConfigProvider {
-            config: ureq::get(&format!("{}/.well-known/openid-configuration", issuer_uri))
-                .call()?
-                .into_json::<OidcConfig>()?,
-        })
+    pub async fn from_issuer_uri(issuer_uri: &str) -> Result<Self, Box<dyn Error>> {
+        let paths = vec![
+            "/.well-known/openid-configuration",
+            "/.well-known/openid-configuration/issuer",
+            "/.well-known/oauth-authorization-server/issuer",
+        ];
+        for path in paths {
+            if let Ok(response) = reqwest::get(format!("{}{}", issuer_uri, path)).await {
+                if let Ok(oidc_config) = response.json().await {
+                    return Ok(OidcConfigProvider {
+                        config: oidc_config,
+                    });
+                }
+            }
+        }
+        Err("Failed to fetch OIDC configuration".into())
     }
 }

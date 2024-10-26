@@ -19,7 +19,7 @@ async fn unauthorized_on_missing_authorization() {
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "").await;
     let mut service = ServiceBuilder::new()
-        .layer(default_auth_layer(&mock_server, Vec::new()).await)
+        .layer(default_auth_layer(&mock_server, &Vec::<String>::new()).await)
         .service_fn(echo);
 
     let request = request_with_headers(Vec::new());
@@ -40,7 +40,7 @@ async fn unauthorized_on_invalid_authorization() {
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "").await;
     let mut service = ServiceBuilder::new()
-        .layer(default_auth_layer(&mock_server, Vec::new()).await)
+        .layer(default_auth_layer(&mock_server, &Vec::<String>::new()).await)
         .service_fn(echo);
 
     let request = request_with_headers(vec![(AUTHORIZATION, "NotAJWT")]);
@@ -63,13 +63,7 @@ async fn unauthorized_on_token_validation_failure() {
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
     mock_jwks(&mock_server, [("good_key".to_owned(), public_key)].to_vec()).await;
     let mut service = ServiceBuilder::new()
-        .layer(
-            default_auth_layer(
-                &mock_server,
-                ["https://some-resource-server.com".to_owned()].to_vec(),
-            )
-            .await,
-        )
+        .layer(default_auth_layer(&mock_server, &["https://some-resource-server.com"]).await)
         .service_fn(echo);
 
     let token = jwt_from(
@@ -96,13 +90,7 @@ async fn ok() {
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
     mock_jwks(&mock_server, [("good_key".to_owned(), public_key)].to_vec()).await;
     let mut service = ServiceBuilder::new()
-        .layer(
-            default_auth_layer(
-                &mock_server,
-                ["https://some-resource-server.com".to_owned()].to_vec(),
-            )
-            .await,
-        )
+        .layer(default_auth_layer(&mock_server, &["https://some-resource-server.com"]).await)
         .service_fn(echo);
     // Needed for initial jwks fetch
     sleep(Duration::from_millis(100)).await;
@@ -126,7 +114,7 @@ async fn ok() {
 
 async fn default_auth_layer(
     mock_server: &MockServer,
-    audiences: Vec<String>,
+    audiences: &[impl ToString],
 ) -> OAuth2ResourceServerLayer<DefaultClaims> {
     <OAuth2ResourceServer>::builder()
         .issuer_uri(&mock_server.uri())

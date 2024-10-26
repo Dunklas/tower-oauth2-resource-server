@@ -12,8 +12,8 @@ async fn main() {
     info!("Running OIDC provider on port: {}", oidc_provider_port);
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
-        .audiences(vec!["tors-example".to_owned()])
-        .issuer_uri(&format!(
+        .audiences(&["tors-example"])
+        .issuer_uri(format!(
             "http://{}:{}/realms/tors",
             oidc_provider_host, oidc_provider_port
         ))

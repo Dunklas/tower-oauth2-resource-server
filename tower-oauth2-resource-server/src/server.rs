@@ -148,18 +148,18 @@ where
         }
     }
 
-    pub fn issuer_uri(mut self, issuer_uri: &str) -> Self {
-        self.issuer_uri = Some(issuer_uri.to_owned());
+    pub fn issuer_uri(mut self, issuer_uri: impl Into<String>) -> Self {
+        self.issuer_uri = Some(issuer_uri.into());
         self
     }
 
-    pub fn jwks_uri(mut self, jwks_uri: &str) -> Self {
-        self.jwks_uri = Some(jwks_uri.to_owned());
+    pub fn jwks_uri(mut self, jwks_uri: impl Into<String>) -> Self {
+        self.jwks_uri = Some(jwks_uri.into());
         self
     }
 
-    pub fn audiences(mut self, audiences: Vec<String>) -> Self {
-        self.audiences = audiences;
+    pub fn audiences(mut self, audiences: &[impl ToString]) -> Self {
+        self.audiences = audiences.iter().map(|aud| aud.to_string()).collect();
         self
     }
 

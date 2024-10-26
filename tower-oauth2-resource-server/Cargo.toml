@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.83"
 futures-util = "0.3.30"
-http = "1.1.0"
+http = { workspace = true }
 jsonwebtoken = "9.3.0"
 log = { workspace = true }
 pin-project = "1.1.5"

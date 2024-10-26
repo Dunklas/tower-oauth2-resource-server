@@ -1,5 +1,6 @@
 use std::{marker::PhantomData, time::Duration};
 
+use http::Uri;
 use serde::de::DeserializeOwned;
 
 use crate::{error::StartupError, server::OAuth2ResourceServer, validation::ClaimsValidationSpec};
@@ -8,7 +9,7 @@ pub struct OAuth2ResourceServerBuilder<Claims>
 where
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
 {
-    issuer_uri: Option<String>,
+    issuer_uri: Option<Uri>,
     jwks_uri: Option<String>,
     audiences: Vec<String>,
     jwk_set_refresh_interval: Duration,
@@ -31,7 +32,7 @@ where
         }
     }
 
-    pub fn issuer_uri(mut self, issuer_uri: impl Into<String>) -> Self {
+    pub fn issuer_uri(mut self, issuer_uri: impl Into<Uri>) -> Self {
         self.issuer_uri = Some(issuer_uri.into());
         self
     }
@@ -56,7 +57,7 @@ where
             "issuer_uri is required".to_owned(),
         ))?;
         OAuth2ResourceServer::new(
-            issuer_uri,
+            &issuer_uri,
             self.jwks_uri,
             self.audiences.clone(),
             self.jwk_set_refresh_interval,

@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use http::Uri;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize)]
@@ -8,12 +9,10 @@ pub(crate) struct OidcConfig {
     pub claims_supported: Option<Vec<String>>,
 }
 
-pub(crate) struct OidcConfigProvider {
-    pub config: OidcConfig,
-}
+pub(crate) struct OidcDiscovery {}
 
-impl OidcConfigProvider {
-    pub async fn from_issuer_uri(issuer_uri: &str) -> Result<Self, Box<dyn Error>> {
+impl OidcDiscovery {
+    pub async fn discover(issuer_uri: &Uri) -> Result<OidcConfig, Box<dyn Error>> {
         let paths = vec![
             "/.well-known/openid-configuration",
             "/.well-known/openid-configuration/issuer",
@@ -22,9 +21,7 @@ impl OidcConfigProvider {
         for path in paths {
             if let Ok(response) = reqwest::get(format!("{}{}", issuer_uri, path)).await {
                 if let Ok(oidc_config) = response.json().await {
-                    return Ok(OidcConfigProvider {
-                        config: oidc_config,
-                    });
+                    return Ok(oidc_config);
                 }
             }
         }

@@ -6,6 +6,7 @@ edition = "2021"
 tower-oauth2-resource-server = { path = "../../tower-oauth2-resource-server" }
 examples-util = { path = "../../examples-util" }
 
+http = { workspace = true }
 tonic = "0.12"
 prost = "0.13"
 tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }

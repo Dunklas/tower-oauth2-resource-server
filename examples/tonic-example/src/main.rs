@@ -1,3 +1,4 @@
+use http::Uri;
 use log::info;
 use tokio::signal;
 use tonic::{transport::Server, Request, Response, Status};
@@ -22,10 +23,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
         .audiences(&["tors-example"])
-        .issuer_uri(format!(
-            "http://{}:{}/realms/tors",
-            oidc_provider_host, oidc_provider_port
-        ))
+        .issuer_uri(
+            format!(
+                "http://{}:{}/realms/tors",
+                oidc_provider_host, oidc_provider_port
+            )
+            .parse::<Uri>()
+            .unwrap(),
+        )
         .build()
         .await
         .expect("Failed to build OAuth2ResourceServer");

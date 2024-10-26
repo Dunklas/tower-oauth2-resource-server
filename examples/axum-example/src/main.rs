@@ -1,4 +1,5 @@
 use axum::{http::StatusCode, routing::get, Extension, Router};
+use http::Uri;
 use log::info;
 use tokio::signal;
 use tower::ServiceBuilder;
@@ -14,10 +15,14 @@ async fn main() {
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
         .audiences(&["tors-example"])
-        .issuer_uri(format!(
-            "http://{}:{}/realms/tors",
-            oidc_provider_host, oidc_provider_port
-        ))
+        .issuer_uri(
+            format!(
+                "http://{}:{}/realms/tors",
+                oidc_provider_host, oidc_provider_port
+            )
+            .parse::<Uri>()
+            .unwrap(),
+        )
         .build()
         .await
         .expect("Failed to build OAuth2ResourceServer");

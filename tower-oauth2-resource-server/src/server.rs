@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{sync::Arc, time::Duration};
 
-use http::Request;
+use http::{Request, Uri};
 use log::{debug, info};
 use serde::de::DeserializeOwned;
 
@@ -12,7 +12,7 @@ use crate::{
     jwks::JwksDecodingKeysProvider,
     jwt::{BearerTokenJwtExtractor, JwtExtractor, JwtValidator, OnlyJwtValidator},
     layer::OAuth2ResourceServerLayer,
-    oidc::OidcConfigProvider,
+    oidc::OidcDiscovery,
     validation::ClaimsValidationSpec,
 };
 
@@ -31,14 +31,14 @@ where
     }
 
     pub(crate) async fn new(
-        issuer_uri: String,
+        issuer_uri: &Uri,
         jwks_uri: Option<String>,
         audiences: Vec<String>,
         jwk_set_refresh_interval: Duration,
         claims_validation_spec: Option<ClaimsValidationSpec>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
         let (jwks_uri, claims_validation_spec) =
-            resolve_config(issuer_uri, jwks_uri, audiences, claims_validation_spec).await?;
+            resolve_config(&issuer_uri, jwks_uri, audiences, claims_validation_spec).await?;
         info!(
             "Will validate the following claims: {}",
             claims_validation_spec
@@ -93,13 +93,13 @@ where
 }
 
 async fn resolve_config(
-    issuer_uri: String,
+    issuer_uri: &Uri,
     jwks_uri: Option<String>,
     audiences: Vec<String>,
     claims_validation_spec: Option<ClaimsValidationSpec>,
 ) -> Result<(String, ClaimsValidationSpec), StartupError> {
     let mut claims_spec = ClaimsValidationSpec::new()
-        .iss(&issuer_uri)
+        .iss(&issuer_uri.to_string())
         .aud(audiences)
         .exp(true);
 
@@ -107,10 +107,10 @@ async fn resolve_config(
         return Ok((jwks_uri, claims_validation_spec.unwrap_or(claims_spec)));
     }
 
-    let oidc_config = OidcConfigProvider::from_issuer_uri(&issuer_uri)
+    let oidc_config = OidcDiscovery::discover(issuer_uri)
         .await
-        .map_err(|_| StartupError::OidcDiscoveryFailed)?
-        .config;
+        .map_err(|_| StartupError::OidcDiscoveryFailed)?;
+
     if let Some(claims_supported) = &oidc_config.claims_supported {
         if claims_supported.contains(&"nbf".to_owned()) {
             claims_spec = claims_spec.nbf(true);

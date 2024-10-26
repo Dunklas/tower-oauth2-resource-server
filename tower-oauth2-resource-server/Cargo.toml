@@ -29,6 +29,7 @@ tower = { workspace = true, features = ["util"] }
 wiremock = "0.6.0"
 
 [features]
-default = ["rustls-tls"]
-rustls-tls = ["reqwest/rustls-tls"]
+default = ["default-tls"]
+default-tls = ["reqwest/default-tls"]
 native-tls = ["reqwest/native-tls"]
+rustls-tls = ["reqwest/rustls-tls"]

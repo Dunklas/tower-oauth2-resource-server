@@ -88,7 +88,7 @@ mod tests {
     #[tokio::test]
     async fn require_issuer() {
         let result = OAuth2ResourceServerBuilder::<Claims>::new().build().await;
-        assert_eq!(result.is_err(), true);
+        assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
             StartupError::InvalidParameter("issuer_uri is required".to_owned())

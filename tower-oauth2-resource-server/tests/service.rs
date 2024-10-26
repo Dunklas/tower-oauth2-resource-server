@@ -117,7 +117,7 @@ async fn default_auth_layer(
     audiences: &[impl ToString],
 ) -> OAuth2ResourceServerLayer<DefaultClaims> {
     <OAuth2ResourceServer>::builder()
-        .issuer_uri(&mock_server.uri())
+        .issuer_uri(mock_server.uri())
         .audiences(audiences)
         .build()
         .await

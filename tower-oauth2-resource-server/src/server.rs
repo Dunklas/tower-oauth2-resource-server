@@ -35,10 +35,12 @@ where
         jwks_uri: Option<String>,
         audiences: Vec<String>,
         jwk_set_refresh_interval: Duration,
-        claims_validation_spec: Option<ClaimsValidationSpec>,
+        custom_claims_validation_spec: Option<ClaimsValidationSpec>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
         let (jwks_uri, claims_validation_spec) =
-            resolve_config(&issuer_uri, jwks_uri, audiences, claims_validation_spec).await?;
+            resolve_config(&issuer_uri, jwks_uri, audiences).await?;
+        let claims_validation_spec =
+            custom_claims_validation_spec.unwrap_or(claims_validation_spec);
         info!(
             "Will validate the following claims: {}",
             claims_validation_spec
@@ -96,7 +98,6 @@ async fn resolve_config(
     issuer_uri: &Uri,
     jwks_uri: Option<String>,
     audiences: Vec<String>,
-    claims_validation_spec: Option<ClaimsValidationSpec>,
 ) -> Result<(String, ClaimsValidationSpec), StartupError> {
     let mut claims_spec = ClaimsValidationSpec::new()
         .iss(&issuer_uri.to_string())
@@ -104,7 +105,7 @@ async fn resolve_config(
         .exp(true);
 
     if let Some(jwks_uri) = jwks_uri {
-        return Ok((jwks_uri, claims_validation_spec.unwrap_or(claims_spec)));
+        return Ok((jwks_uri, claims_spec));
     }
 
     let oidc_config = OidcDiscovery::discover(issuer_uri)
@@ -116,8 +117,8 @@ async fn resolve_config(
             claims_spec = claims_spec.nbf(true);
         }
     }
-    Ok((
-        oidc_config.jwks_uri,
-        claims_validation_spec.unwrap_or(claims_spec),
-    ))
+    Ok((oidc_config.jwks_uri, claims_spec))
 }
+
+#[cfg(test)]
+mod tests {}

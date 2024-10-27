@@ -6,6 +6,8 @@ use url::Url;
 #[cfg(test)]
 use mockall::automock;
 
+use crate::error::StartupError;
+
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct OidcConfig {
     pub jwks_uri: String,
@@ -19,7 +21,7 @@ pub(crate) struct OidcDiscovery {}
 impl OidcDiscovery {
     #[cfg_attr(test, allow(dead_code))]
     pub async fn discover(issuer_uri: &Url) -> Result<OidcConfig, Box<dyn Error>> {
-        let paths = get_paths(issuer_uri);
+        let paths = get_paths(issuer_uri)?;
         for path in paths {
             if let Ok(response) = reqwest::get(path).await {
                 if let Ok(oidc_config) = response.json().await {
@@ -31,13 +33,72 @@ impl OidcDiscovery {
     }
 }
 
-fn get_paths(issuer_uri: &Url) -> Vec<Url> {
-    vec![
-        ".well-known/openid-configuration",
-        ".well-known/openid-configuration/issuer",
-        ".well-known/oauth-authorization-server/issuer",
+fn get_paths(issuer_uri: &Url) -> Result<Vec<Url>, Box<dyn Error>> {
+    let mut first = issuer_uri.clone();
+    first
+        .path_segments_mut()
+        .map_err(|_| {
+            StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri))
+        })?
+        .extend(&[".well-known", "openid-configuration"]);
+
+    let mut second = issuer_uri.clone();
+    let mut x = vec![".well-known", "openid-configuration"];
+    x.extend(issuer_uri.path_segments().unwrap());
+    second.path_segments_mut()
+        .map_err(|_| {
+            StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri))
+        })?
+        .clear()
+        .extend(x);
+
+    let mut third = issuer_uri.clone();
+    let mut x = vec![".well-known", "oauth-authorization-server"];
+    x.extend(issuer_uri.path_segments().unwrap());
+    third.path_segments_mut()
+        .map_err(|_| {
+            StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri))
+        })?
+        .clear()
+        .extend(x);
+
+    Ok(vec![
+        &first.to_string(),
+        &second.to_string(),
+        &third.to_string(),
     ]
     .into_iter()
-    .map(|path| format!("{}{}", issuer_uri, path).parse::<Url>().unwrap())
-    .collect()
+    .map(|path| path.parse::<Url>().unwrap())
+    .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use url::Url;
+
+    use super::get_paths;
+
+    #[test]
+    fn test_get_paths_with_path() {
+        let result = get_paths(
+            &"https://authorization-server.com/issuer"
+                .parse::<Url>()
+                .unwrap(),
+        );
+
+        assert_eq!(
+            result.unwrap(),
+            vec![
+                "https://authorization-server.com/issuer/.well-known/openid-configuration"
+                    .parse::<Url>()
+                    .unwrap(),
+                "https://authorization-server.com/.well-known/openid-configuration/issuer"
+                    .parse::<Url>()
+                    .unwrap(),
+                "https://authorization-server.com/.well-known/oauth-authorization-server/issuer"
+                    .parse::<Url>()
+                    .unwrap()
+            ]
+        )
+    }
 }

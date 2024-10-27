@@ -117,4 +117,42 @@ mod tests {
             ]
         )
     }
+
+    #[test]
+    fn test_get_paths_no_path() {
+        let result = get_paths(
+            &"https://authorization-server.com"
+                .parse::<Url>()
+                .unwrap(),
+        );
+        let paths = result.unwrap().into_iter().map(|p| p.to_string()).collect::<Vec<_>>();
+
+        assert_eq!(
+            paths,
+            vec![
+                "https://authorization-server.com/.well-known/openid-configuration",
+                "https://authorization-server.com/.well-known/openid-configuration",
+                "https://authorization-server.com/.well-known/oauth-authorization-server",
+            ]
+        )
+    }
+
+    #[test]
+    fn test_get_paths_no_path_trailing_slash() {
+        let result = get_paths(
+            &"https://authorization-server.com/"
+                .parse::<Url>()
+                .unwrap(),
+        );
+        let paths = result.unwrap().into_iter().map(|p| p.to_string()).collect::<Vec<_>>();
+
+        assert_eq!(
+            paths,
+            vec![
+                "https://authorization-server.com/.well-known/openid-configuration",
+                "https://authorization-server.com/.well-known/openid-configuration",
+                "https://authorization-server.com/.well-known/oauth-authorization-server",
+            ]
+        )
+    }
 }

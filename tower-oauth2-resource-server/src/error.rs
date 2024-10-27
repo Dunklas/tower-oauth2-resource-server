@@ -3,7 +3,7 @@ use http::{header::WWW_AUTHENTICATE, HeaderValue, Response, StatusCode};
 #[derive(Debug, PartialEq)]
 pub enum StartupError {
     InvalidParameter(String),
-    OidcDiscoveryFailed,
+    OidcDiscoveryFailed(String),
 }
 
 #[derive(Debug, PartialEq)]

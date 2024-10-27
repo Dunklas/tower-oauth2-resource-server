@@ -12,9 +12,13 @@ use crate::{
     jwks::JwksDecodingKeysProvider,
     jwt::{BearerTokenJwtExtractor, JwtExtractor, JwtValidator, OnlyJwtValidator},
     layer::OAuth2ResourceServerLayer,
-    oidc::OidcDiscovery,
     validation::ClaimsValidationSpec,
 };
+
+use mockall_double::double;
+
+#[double]
+use crate::oidc::OidcDiscovery;
 
 #[derive(Clone)]
 pub struct OAuth2ResourceServer<Claims = DefaultClaims> {
@@ -110,7 +114,7 @@ async fn resolve_config(
 
     let oidc_config = OidcDiscovery::discover(issuer_uri)
         .await
-        .map_err(|_| StartupError::OidcDiscoveryFailed)?;
+        .map_err(|e| StartupError::OidcDiscoveryFailed(e.to_string()))?;
 
     if let Some(claims_supported) = &oidc_config.claims_supported {
         if claims_supported.contains(&"nbf".to_owned()) {
@@ -121,4 +125,35 @@ async fn resolve_config(
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+    use crate::oidc::{MockOidcDiscovery, OidcConfig};
+    use std::sync::Mutex;
+
+    static MTX: Mutex<()> = Mutex::new(());
+
+    #[tokio::test]
+    async fn test1() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().returning(|_| Ok(OidcConfig {
+            jwks_uri: "".to_owned(),
+            claims_supported: None
+        }));
+
+        let issuer_uri = "http://www.tn.com".parse::<Uri>().unwrap();
+        let server = <OAuth2ResourceServer>::new(
+            &issuer_uri,
+            None,
+            vec![],
+            Duration::from_secs(1),
+            None,
+        ).await;
+        assert!(server.is_ok());
+    }
+
+    #[test]
+    fn test2() {
+        let _m = MTX.lock();
+    }
+}

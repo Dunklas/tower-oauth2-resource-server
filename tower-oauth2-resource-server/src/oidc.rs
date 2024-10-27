@@ -3,6 +3,9 @@ use std::error::Error;
 use http::Uri;
 use serde::Deserialize;
 
+#[cfg(test)]
+use mockall::automock;
+
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct OidcConfig {
     pub jwks_uri: String,
@@ -11,12 +14,13 @@ pub(crate) struct OidcConfig {
 
 pub(crate) struct OidcDiscovery {}
 
+#[cfg_attr(test, automock)]
 impl OidcDiscovery {
     pub async fn discover(issuer_uri: &Uri) -> Result<OidcConfig, Box<dyn Error>> {
         let paths = vec![
-            "/.well-known/openid-configuration",
-            "/.well-known/openid-configuration/issuer",
-            "/.well-known/oauth-authorization-server/issuer",
+            ".well-known/openid-configuration",
+            ".well-known/openid-configuration/issuer",
+            ".well-known/oauth-authorization-server/issuer",
         ];
         for path in paths {
             if let Ok(response) = reqwest::get(format!("{}{}", issuer_uri, path)).await {

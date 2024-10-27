@@ -42,7 +42,7 @@ where
         custom_claims_validation_spec: Option<ClaimsValidationSpec>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
         let (jwks_uri, claims_validation_spec) =
-            resolve_config(&issuer_uri, jwks_uri, audiences).await?;
+            resolve_config(issuer_uri, jwks_uri, audiences).await?;
         let claims_validation_spec =
             custom_claims_validation_spec.unwrap_or(claims_validation_spec);
         info!(
@@ -133,23 +133,41 @@ mod tests {
     static MTX: Mutex<()> = Mutex::new(());
 
     #[tokio::test]
-    async fn test1() {
+    async fn test_should_perform_oidc_discovery() {
         let _m = MTX.lock();
         let ctx = MockOidcDiscovery::discover_context();
-        ctx.expect().returning(|_| Ok(OidcConfig {
-            jwks_uri: "".to_owned(),
-            claims_supported: None
-        }));
+        ctx.expect()
+            .returning(|_| {
+                Ok(OidcConfig {
+                    jwks_uri: "".to_owned(),
+                    claims_supported: None,
+                })
+            })
+            .once();
 
-        let issuer_uri = "http://www.tn.com".parse::<Uri>().unwrap();
-        let server = <OAuth2ResourceServer>::new(
+        let issuer_uri = "http://some-issuer.com".parse::<Uri>().unwrap();
+        let result =
+            <OAuth2ResourceServer>::new(&issuer_uri, None, vec![], Duration::from_secs(1), None)
+                .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_skip_oidc_discovery_if_jwks_uri_set() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().never();
+
+        let issuer_uri = "http://some-issuer.com".parse::<Uri>().unwrap();
+        let result = <OAuth2ResourceServer>::new(
             &issuer_uri,
-            None,
+            Some("https://some-issuer.com/jwks".to_owned()),
             vec![],
             Duration::from_secs(1),
             None,
-        ).await;
-        assert!(server.is_ok());
+        )
+        .await;
+        assert!(result.is_ok());
     }
 
     #[test]

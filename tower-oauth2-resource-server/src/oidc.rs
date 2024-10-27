@@ -12,10 +12,12 @@ pub(crate) struct OidcConfig {
     pub claims_supported: Option<Vec<String>>,
 }
 
+#[cfg_attr(test, allow(dead_code))]
 pub(crate) struct OidcDiscovery {}
 
 #[cfg_attr(test, automock)]
 impl OidcDiscovery {
+    #[cfg_attr(test, allow(dead_code))]
     pub async fn discover(issuer_uri: &Uri) -> Result<OidcConfig, Box<dyn Error>> {
         let paths = vec![
             ".well-known/openid-configuration",

@@ -34,42 +34,54 @@ impl OidcDiscovery {
 }
 
 fn get_paths(issuer_uri: &Url) -> Result<Vec<Url>, Box<dyn Error>> {
-    let mut first = issuer_uri.clone();
-    first.path_segments_mut()
-        .map_err(|_| {
-            StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri))
-        })?
-        .pop_if_empty()
-        .extend(&[".well-known", "openid-configuration"]);
+    let build_url = |base: &Url, segments: &[&str]| -> Result<Url, Box<dyn Error>> {
+        let mut url = base.clone();
+        url.path_segments_mut()
+            .map_err(|_| {
+                StartupError::InvalidParameter(format!("Could not parse issuer: {}", base))
+            })?
+            .clear()
+            .extend(segments);
+        Ok(url)
+    };
 
-    let mut second = issuer_uri.clone();
-    let mut x = vec![".well-known", "openid-configuration"];
-    x.extend(issuer_uri.path_segments().unwrap().filter(|p| *p != ""));
-    second.path_segments_mut()
-        .map_err(|_| {
-            StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri))
-        })?
-        .clear()
-        .extend(x);
+    let base_segments: Vec<_> = issuer_uri
+        .path_segments()
+        .ok_or(StartupError::InvalidParameter(format!(
+            "Could not parse issuer: {}",
+            issuer_uri
+        )))?
+        .filter(|p| !p.is_empty())
+        .collect();
 
-    let mut third = issuer_uri.clone();
-    let mut x = vec![".well-known", "oauth-authorization-server"];
-    x.extend(issuer_uri.path_segments().unwrap().filter(|p| *p != ""));
-    third.path_segments_mut()
-        .map_err(|_| {
-            StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri))
-        })?
-        .clear()
-        .extend(x);
+    let paths = vec![
+        {
+            let mut first = issuer_uri.clone();
+            first
+                .path_segments_mut()
+                .map_err(|_| {
+                    StartupError::InvalidParameter(format!(
+                        "Could not parse issuer: {}",
+                        issuer_uri
+                    ))
+                })?
+                .pop_if_empty()
+                .extend(&[".well-known", "openid-configuration"]);
+            Ok(first)
+        },
+        {
+            let mut segments = vec![".well-known", "openid-configuration"];
+            segments.extend(base_segments.clone());
+            build_url(issuer_uri, &segments)
+        },
+        {
+            let mut segments = vec![".well-known", "oauth-authorization-server"];
+            segments.extend(base_segments.clone());
+            build_url(issuer_uri, &segments)
+        },
+    ];
 
-    Ok(vec![
-        &first.to_string(),
-        &second.to_string(),
-        &third.to_string(),
-    ]
-    .into_iter()
-    .map(|path| path.parse::<Url>().unwrap())
-    .collect())
+    paths.into_iter().collect()
 }
 
 #[cfg(test)]
@@ -85,7 +97,11 @@ mod tests {
                 .parse::<Url>()
                 .unwrap(),
         );
-        let paths = result.unwrap().into_iter().map(|p| p.to_string()).collect::<Vec<_>>();
+        let paths = result
+            .unwrap()
+            .into_iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>();
 
         assert_eq!(
             paths,
@@ -104,7 +120,11 @@ mod tests {
                 .parse::<Url>()
                 .unwrap(),
         );
-        let paths = result.unwrap().into_iter().map(|p| p.to_string()).collect::<Vec<_>>();
+        let paths = result
+            .unwrap()
+            .into_iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>();
 
         assert_eq!(
             paths,
@@ -118,12 +138,12 @@ mod tests {
 
     #[test]
     fn test_get_paths_no_path() {
-        let result = get_paths(
-            &"https://authorization-server.com"
-                .parse::<Url>()
-                .unwrap(),
-        );
-        let paths = result.unwrap().into_iter().map(|p| p.to_string()).collect::<Vec<_>>();
+        let result = get_paths(&"https://authorization-server.com".parse::<Url>().unwrap());
+        let paths = result
+            .unwrap()
+            .into_iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>();
 
         assert_eq!(
             paths,
@@ -137,12 +157,12 @@ mod tests {
 
     #[test]
     fn test_get_paths_no_path_trailing_slash() {
-        let result = get_paths(
-            &"https://authorization-server.com/"
-                .parse::<Url>()
-                .unwrap(),
-        );
-        let paths = result.unwrap().into_iter().map(|p| p.to_string()).collect::<Vec<_>>();
+        let result = get_paths(&"https://authorization-server.com/".parse::<Url>().unwrap());
+        let paths = result
+            .unwrap()
+            .into_iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>();
 
         assert_eq!(
             paths,

@@ -34,8 +34,6 @@ impl OidcDiscovery {
 }
 
 fn get_paths(issuer_uri: &Url) -> Result<Vec<Url>, Box<dyn Error>> {
-    let x = issuer_uri.path_segments().unwrap().into_iter().collect::<Vec<_>>();
-    println!("DEBUG: {:?}", x);
     let mut first = issuer_uri.clone();
     first.path_segments_mut()
         .map_err(|_| {

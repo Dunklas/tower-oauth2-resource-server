@@ -34,16 +34,19 @@ impl OidcDiscovery {
 }
 
 fn get_paths(issuer_uri: &Url) -> Result<Vec<Url>, Box<dyn Error>> {
+    let x = issuer_uri.path_segments().unwrap().into_iter().collect::<Vec<_>>();
+    println!("DEBUG: {:?}", x);
     let mut first = issuer_uri.clone();
     first.path_segments_mut()
         .map_err(|_| {
             StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri))
         })?
+        .pop_if_empty()
         .extend(&[".well-known", "openid-configuration"]);
 
     let mut second = issuer_uri.clone();
     let mut x = vec![".well-known", "openid-configuration"];
-    x.extend(issuer_uri.path_segments().unwrap());
+    x.extend(issuer_uri.path_segments().unwrap().filter(|p| *p != ""));
     second.path_segments_mut()
         .map_err(|_| {
             StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri))
@@ -53,7 +56,7 @@ fn get_paths(issuer_uri: &Url) -> Result<Vec<Url>, Box<dyn Error>> {
 
     let mut third = issuer_uri.clone();
     let mut x = vec![".well-known", "oauth-authorization-server"];
-    x.extend(issuer_uri.path_segments().unwrap());
+    x.extend(issuer_uri.path_segments().unwrap().filter(|p| *p != ""));
     third.path_segments_mut()
         .map_err(|_| {
             StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri))

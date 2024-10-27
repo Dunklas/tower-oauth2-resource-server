@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{collections::HashSet, error::Error};
 
 use serde::Deserialize;
 use url::Url;
@@ -33,7 +33,7 @@ impl OidcDiscovery {
     }
 }
 
-fn get_paths(issuer_uri: &Url) -> Result<Vec<Url>, Box<dyn Error>> {
+fn get_paths(issuer_uri: &Url) -> Result<HashSet<Url>, Box<dyn Error>> {
     let build_url = |base: &Url, segments: &[&str]| -> Result<Url, Box<dyn Error>> {
         let mut url = base.clone();
         url.path_segments_mut()
@@ -86,6 +86,8 @@ fn get_paths(issuer_uri: &Url) -> Result<Vec<Url>, Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use url::Url;
 
     use super::get_paths;
@@ -101,16 +103,15 @@ mod tests {
             .unwrap()
             .into_iter()
             .map(|p| p.to_string())
-            .collect::<Vec<_>>();
-
-        assert_eq!(
-            paths,
-            vec![
-                "https://authorization-server.com/issuer/.well-known/openid-configuration",
-                "https://authorization-server.com/.well-known/openid-configuration/issuer",
-                "https://authorization-server.com/.well-known/oauth-authorization-server/issuer"
-            ]
-        )
+            .collect::<HashSet<_>>();
+        assert_eq!(paths.len(), 3);
+        assert!(paths
+            .contains("https://authorization-server.com/issuer/.well-known/openid-configuration"));
+        assert!(paths
+            .contains("https://authorization-server.com/.well-known/openid-configuration/issuer"));
+        assert!(paths.contains(
+            "https://authorization-server.com/.well-known/oauth-authorization-server/issuer"
+        ));
     }
 
     #[test]
@@ -124,16 +125,15 @@ mod tests {
             .unwrap()
             .into_iter()
             .map(|p| p.to_string())
-            .collect::<Vec<_>>();
+            .collect::<HashSet<_>>();
 
-        assert_eq!(
-            paths,
-            vec![
-                "https://authorization-server.com/issuer/.well-known/openid-configuration",
-                "https://authorization-server.com/.well-known/openid-configuration/issuer",
-                "https://authorization-server.com/.well-known/oauth-authorization-server/issuer",
-            ]
-        )
+        assert!(paths
+            .contains("https://authorization-server.com/issuer/.well-known/openid-configuration"));
+        assert!(paths
+            .contains("https://authorization-server.com/.well-known/openid-configuration/issuer"));
+        assert!(paths.contains(
+            "https://authorization-server.com/.well-known/oauth-authorization-server/issuer"
+        ));
     }
 
     #[test]
@@ -143,16 +143,12 @@ mod tests {
             .unwrap()
             .into_iter()
             .map(|p| p.to_string())
-            .collect::<Vec<_>>();
+            .collect::<HashSet<_>>();
 
-        assert_eq!(
-            paths,
-            vec![
-                "https://authorization-server.com/.well-known/openid-configuration",
-                "https://authorization-server.com/.well-known/openid-configuration",
-                "https://authorization-server.com/.well-known/oauth-authorization-server",
-            ]
-        )
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains("https://authorization-server.com/.well-known/openid-configuration"));
+        assert!(paths
+            .contains("https://authorization-server.com/.well-known/oauth-authorization-server"));
     }
 
     #[test]
@@ -162,15 +158,11 @@ mod tests {
             .unwrap()
             .into_iter()
             .map(|p| p.to_string())
-            .collect::<Vec<_>>();
+            .collect::<HashSet<_>>();
 
-        assert_eq!(
-            paths,
-            vec![
-                "https://authorization-server.com/.well-known/openid-configuration",
-                "https://authorization-server.com/.well-known/openid-configuration",
-                "https://authorization-server.com/.well-known/oauth-authorization-server",
-            ]
-        )
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains("https://authorization-server.com/.well-known/openid-configuration"));
+        assert!(paths
+            .contains("https://authorization-server.com/.well-known/oauth-authorization-server"));
     }
 }

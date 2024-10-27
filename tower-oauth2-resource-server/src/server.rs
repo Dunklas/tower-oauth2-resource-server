@@ -170,9 +170,4 @@ mod tests {
         .await;
         assert!(result.is_ok());
     }
-
-    #[test]
-    fn test2() {
-        let _m = MTX.lock();
-    }
 }

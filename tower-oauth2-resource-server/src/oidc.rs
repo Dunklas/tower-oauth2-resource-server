@@ -35,8 +35,7 @@ impl OidcDiscovery {
 
 fn get_paths(issuer_uri: &Url) -> Result<Vec<Url>, Box<dyn Error>> {
     let mut first = issuer_uri.clone();
-    first
-        .path_segments_mut()
+    first.path_segments_mut()
         .map_err(|_| {
             StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri))
         })?
@@ -85,19 +84,33 @@ mod tests {
                 .parse::<Url>()
                 .unwrap(),
         );
+        let paths = result.unwrap().into_iter().map(|p| p.to_string()).collect::<Vec<_>>();
 
         assert_eq!(
-            result.unwrap(),
+            paths,
             vec![
-                "https://authorization-server.com/issuer/.well-known/openid-configuration"
-                    .parse::<Url>()
-                    .unwrap(),
-                "https://authorization-server.com/.well-known/openid-configuration/issuer"
-                    .parse::<Url>()
-                    .unwrap(),
+                "https://authorization-server.com/issuer/.well-known/openid-configuration",
+                "https://authorization-server.com/.well-known/openid-configuration/issuer",
                 "https://authorization-server.com/.well-known/oauth-authorization-server/issuer"
-                    .parse::<Url>()
-                    .unwrap()
+            ]
+        )
+    }
+
+    #[test]
+    fn test_get_paths_with_path_trailing_slash() {
+        let result = get_paths(
+            &"https://authorization-server.com/issuer/"
+                .parse::<Url>()
+                .unwrap(),
+        );
+        let paths = result.unwrap().into_iter().map(|p| p.to_string()).collect::<Vec<_>>();
+
+        assert_eq!(
+            paths,
+            vec![
+                "https://authorization-server.com/issuer/.well-known/openid-configuration",
+                "https://authorization-server.com/.well-known/openid-configuration/issuer",
+                "https://authorization-server.com/.well-known/oauth-authorization-server/issuer",
             ]
         )
     }

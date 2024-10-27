@@ -3051,6 +3051,7 @@ dependencies = [
  "serde_with",
  "tokio",
  "tower 0.4.13",
+ "url",
  "wiremock",
 ]
 

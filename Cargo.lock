@@ -248,11 +248,11 @@ dependencies = [
  "axum",
  "env_logger",
  "examples-util",
- "http",
  "log",
  "tokio",
  "tower 0.4.13",
  "tower-oauth2-resource-server",
+ "url",
 ]
 
 [[package]]
@@ -2223,12 +2223,12 @@ version = "0.0.0"
 dependencies = [
  "env_logger",
  "examples-util",
- "http",
  "log",
  "salvo",
  "tokio",
  "tower 0.4.13",
  "tower-oauth2-resource-server",
+ "url",
 ]
 
 [[package]]
@@ -2974,7 +2974,6 @@ version = "0.0.0"
 dependencies = [
  "env_logger",
  "examples-util",
- "http",
  "log",
  "prost",
  "tokio",
@@ -2982,6 +2981,7 @@ dependencies = [
  "tonic-build",
  "tower 0.4.13",
  "tower-oauth2-resource-server",
+ "url",
 ]
 
 [[package]]

@@ -1,4 +1,3 @@
-use http::Uri;
 use log::info;
 use tokio::signal;
 use tonic::{transport::Server, Request, Response, Status};
@@ -8,6 +7,7 @@ use hello_world::greeter_server::{Greeter, GreeterServer};
 use hello_world::{HelloReply, HelloRequest};
 use tower_oauth2_resource_server::claims::DefaultClaims;
 use tower_oauth2_resource_server::server::OAuth2ResourceServer;
+use url::Url;
 
 pub mod hello_world {
     tonic::include_proto!("helloworld");
@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "http://{}:{}/realms/tors",
                 oidc_provider_host, oidc_provider_port
             )
-            .parse::<Uri>()
+            .parse::<Url>()
             .unwrap(),
         )
         .build()

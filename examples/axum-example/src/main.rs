@@ -1,9 +1,9 @@
 use axum::{http::StatusCode, routing::get, Extension, Router};
-use http::Uri;
 use log::info;
 use tokio::signal;
 use tower::ServiceBuilder;
 use tower_oauth2_resource_server::{claims::DefaultClaims, server::OAuth2ResourceServer};
+use url::Url;
 
 #[tokio::main]
 async fn main() {
@@ -20,7 +20,7 @@ async fn main() {
                 "http://{}:{}/realms/tors",
                 oidc_provider_host, oidc_provider_port
             )
-            .parse::<Uri>()
+            .parse::<Url>()
             .unwrap(),
         )
         .build()

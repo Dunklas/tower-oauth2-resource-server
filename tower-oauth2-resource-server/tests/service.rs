@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bytes::Bytes;
 use common::{jwt_from, mock_jwks, mock_oidc_config, rsa_key_pair};
-use http::{header::AUTHORIZATION, HeaderName, Request, Response, StatusCode, Uri};
+use http::{header::AUTHORIZATION, HeaderName, Request, Response, StatusCode};
 use http_body_util::Full;
 use tokio::time::sleep;
 use tower::{BoxError, Service, ServiceBuilder, ServiceExt};
@@ -10,6 +10,7 @@ use tower::{BoxError, Service, ServiceBuilder, ServiceExt};
 use tower_oauth2_resource_server::{
     claims::DefaultClaims, layer::OAuth2ResourceServerLayer, server::OAuth2ResourceServer,
 };
+use url::Url;
 use wiremock::MockServer;
 
 mod common;
@@ -118,7 +119,7 @@ async fn default_auth_layer(
     audiences: &[impl ToString],
 ) -> OAuth2ResourceServerLayer<DefaultClaims> {
     <OAuth2ResourceServer>::builder()
-        .issuer_uri(mock_server.uri().parse::<Uri>().unwrap())
+        .issuer_uri(mock_server.uri().parse::<Url>().unwrap())
         .audiences(audiences)
         .build()
         .await

@@ -1,7 +1,7 @@
 use std::error::Error;
 
-use http::Uri;
 use serde::Deserialize;
+use url::Url;
 
 #[cfg(test)]
 use mockall::automock;
@@ -18,10 +18,10 @@ pub(crate) struct OidcDiscovery {}
 #[cfg_attr(test, automock)]
 impl OidcDiscovery {
     #[cfg_attr(test, allow(dead_code))]
-    pub async fn discover(issuer_uri: &Uri) -> Result<OidcConfig, Box<dyn Error>> {
+    pub async fn discover(issuer_uri: &Url) -> Result<OidcConfig, Box<dyn Error>> {
         let paths = get_paths(issuer_uri);
         for path in paths {
-            if let Ok(response) = reqwest::get(&path.to_string()).await {
+            if let Ok(response) = reqwest::get(path).await {
                 if let Ok(oidc_config) = response.json().await {
                     return Ok(oidc_config);
                 }
@@ -31,13 +31,13 @@ impl OidcDiscovery {
     }
 }
 
-fn get_paths(issuer_uri: &Uri) -> Vec<Uri> {
+fn get_paths(issuer_uri: &Url) -> Vec<Url> {
     vec![
         ".well-known/openid-configuration",
         ".well-known/openid-configuration/issuer",
         ".well-known/oauth-authorization-server/issuer",
     ]
     .into_iter()
-    .map(|path| format!("{}{}", issuer_uri, path).parse::<Uri>().unwrap())
+    .map(|path| format!("{}{}", issuer_uri, path).parse::<Url>().unwrap())
     .collect()
 }

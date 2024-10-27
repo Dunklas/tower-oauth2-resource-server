@@ -1,9 +1,10 @@
 use core::fmt;
 use std::{sync::Arc, time::Duration};
 
-use http::{Request, Uri};
+use http::Request;
 use log::{debug, info};
 use serde::de::DeserializeOwned;
+use url::Url;
 
 use crate::{
     builder::OAuth2ResourceServerBuilder,
@@ -35,7 +36,7 @@ where
     }
 
     pub(crate) async fn new(
-        issuer_uri: &Uri,
+        issuer_uri: &Url,
         jwks_uri: Option<String>,
         audiences: Vec<String>,
         jwk_set_refresh_interval: Duration,
@@ -99,12 +100,12 @@ where
 }
 
 async fn resolve_config(
-    issuer_uri: &Uri,
+    issuer_uri: &Url,
     jwks_uri: Option<String>,
     audiences: Vec<String>,
 ) -> Result<(String, ClaimsValidationSpec), StartupError> {
     let mut claims_spec = ClaimsValidationSpec::new()
-        .iss(&issuer_uri.to_string())
+        .iss(issuer_uri.as_ref())
         .aud(audiences)
         .exp(true);
 
@@ -145,7 +146,7 @@ mod tests {
             })
             .once();
 
-        let issuer_uri = "http://some-issuer.com".parse::<Uri>().unwrap();
+        let issuer_uri = "http://some-issuer.com".parse::<Url>().unwrap();
         let result =
             <OAuth2ResourceServer>::new(&issuer_uri, None, vec![], Duration::from_secs(1), None)
                 .await;
@@ -158,7 +159,7 @@ mod tests {
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().never();
 
-        let issuer_uri = "http://some-issuer.com".parse::<Uri>().unwrap();
+        let issuer_uri = "http://some-issuer.com".parse::<Url>().unwrap();
         let result = <OAuth2ResourceServer>::new(
             &issuer_uri,
             Some("https://some-issuer.com/jwks".to_owned()),

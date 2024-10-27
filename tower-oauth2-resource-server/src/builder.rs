@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, time::Duration};
 
-use http::Uri;
 use serde::de::DeserializeOwned;
+use url::Url;
 
 use crate::{error::StartupError, server::OAuth2ResourceServer, validation::ClaimsValidationSpec};
 
@@ -9,7 +9,7 @@ pub struct OAuth2ResourceServerBuilder<Claims>
 where
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
 {
-    issuer_uri: Option<Uri>,
+    issuer_uri: Option<Url>,
     jwks_uri: Option<String>,
     audiences: Vec<String>,
     jwk_set_refresh_interval: Duration,
@@ -32,7 +32,7 @@ where
         }
     }
 
-    pub fn issuer_uri(mut self, issuer_uri: impl Into<Uri>) -> Self {
+    pub fn issuer_uri(mut self, issuer_uri: impl Into<Url>) -> Self {
         self.issuer_uri = Some(issuer_uri.into());
         self
     }

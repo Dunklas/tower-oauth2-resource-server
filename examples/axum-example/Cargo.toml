@@ -11,4 +11,3 @@ tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
 log = { workspace = true }
 tower = { workspace = true }
 env_logger = { workspace = true }
-url = { workspace = true }

@@ -252,7 +252,6 @@ dependencies = [
  "tokio",
  "tower 0.4.13",
  "tower-oauth2-resource-server",
- "url",
 ]
 
 [[package]]
@@ -2228,7 +2227,6 @@ dependencies = [
  "tokio",
  "tower 0.4.13",
  "tower-oauth2-resource-server",
- "url",
 ]
 
 [[package]]
@@ -2981,7 +2979,6 @@ dependencies = [
  "tonic-build",
  "tower 0.4.13",
  "tower-oauth2-resource-server",
- "url",
 ]
 
 [[package]]

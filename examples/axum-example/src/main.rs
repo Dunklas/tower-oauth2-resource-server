@@ -3,7 +3,6 @@ use log::info;
 use tokio::signal;
 use tower::ServiceBuilder;
 use tower_oauth2_resource_server::{claims::DefaultClaims, server::OAuth2ResourceServer};
-use url::Url;
 
 #[tokio::main]
 async fn main() {
@@ -15,14 +14,10 @@ async fn main() {
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
         .audiences(&["tors-example"])
-        .issuer_uri(
-            format!(
-                "http://{}:{}/realms/tors",
-                oidc_provider_host, oidc_provider_port
-            )
-            .parse::<Url>()
-            .unwrap(),
-        )
+        .issuer_uri(&format!(
+            "http://{}:{}/realms/tors",
+            oidc_provider_host, oidc_provider_port
+        ))
         .build()
         .await
         .expect("Failed to build OAuth2ResourceServer");

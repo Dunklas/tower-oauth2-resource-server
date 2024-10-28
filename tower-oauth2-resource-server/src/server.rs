@@ -36,7 +36,7 @@ where
     }
 
     pub(crate) async fn new(
-        issuer_uri: &Url,
+        issuer_uri: &str,
         jwks_uri: Option<String>,
         audiences: Vec<String>,
         jwk_set_refresh_interval: Duration,
@@ -100,23 +100,23 @@ where
 }
 
 async fn resolve_config(
-    issuer_uri: &Url,
+    issuer_uri: &str,
     jwks_uri: Option<String>,
     audiences: Vec<String>,
 ) -> Result<(String, ClaimsValidationSpec), StartupError> {
     let mut claims_spec = ClaimsValidationSpec::new()
-        // http://127.0.0.1:42203 becomes http://127.0.0.1:42203/ here
-        // TODO: Maybe need to take issuer_uri as str?
-        .iss(issuer_uri.as_ref())
+        .iss(issuer_uri)
         .aud(audiences)
         .exp(true);
-    println!("DEBUG: {:?}", claims_spec);
 
     if let Some(jwks_uri) = jwks_uri {
         return Ok((jwks_uri, claims_spec));
     }
 
-    let oidc_config = OidcDiscovery::discover(issuer_uri)
+    let issuer_url = issuer_uri.parse::<Url>().map_err(|_| {
+        StartupError::InvalidParameter(format!("Invalid issuer_uri: {}", issuer_uri))
+    })?;
+    let oidc_config = OidcDiscovery::discover(&issuer_url)
         .await
         .map_err(|e| StartupError::OidcDiscoveryFailed(e.to_string()))?;
 
@@ -149,10 +149,14 @@ mod tests {
             })
             .once();
 
-        let issuer_uri = "http://some-issuer.com".parse::<Url>().unwrap();
-        let result =
-            <OAuth2ResourceServer>::new(&issuer_uri, None, vec![], Duration::from_secs(1), None)
-                .await;
+        let result = <OAuth2ResourceServer>::new(
+            "http://some-issuer.com",
+            None,
+            vec![],
+            Duration::from_secs(1),
+            None,
+        )
+        .await;
         assert!(result.is_ok());
     }
 
@@ -162,9 +166,8 @@ mod tests {
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().never();
 
-        let issuer_uri = "http://some-issuer.com".parse::<Url>().unwrap();
         let result = <OAuth2ResourceServer>::new(
-            &issuer_uri,
+            "http://some-issuer.com",
             Some("https://some-issuer.com/jwks".to_owned()),
             vec![],
             Duration::from_secs(1),

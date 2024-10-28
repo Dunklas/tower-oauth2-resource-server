@@ -7,7 +7,6 @@ use hello_world::greeter_server::{Greeter, GreeterServer};
 use hello_world::{HelloReply, HelloRequest};
 use tower_oauth2_resource_server::claims::DefaultClaims;
 use tower_oauth2_resource_server::server::OAuth2ResourceServer;
-use url::Url;
 
 pub mod hello_world {
     tonic::include_proto!("helloworld");
@@ -23,14 +22,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
         .audiences(&["tors-example"])
-        .issuer_uri(
-            format!(
-                "http://{}:{}/realms/tors",
-                oidc_provider_host, oidc_provider_port
-            )
-            .parse::<Url>()
-            .unwrap(),
-        )
+        .issuer_uri(&format!(
+            "http://{}:{}/realms/tors",
+            oidc_provider_host, oidc_provider_port
+        ))
         .build()
         .await
         .expect("Failed to build OAuth2ResourceServer");

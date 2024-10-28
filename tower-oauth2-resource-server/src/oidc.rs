@@ -20,8 +20,8 @@ pub(crate) struct OidcDiscovery {}
 #[cfg_attr(test, automock)]
 impl OidcDiscovery {
     #[cfg_attr(test, allow(dead_code))]
-    pub async fn discover(issuer_uri: &Url) -> Result<OidcConfig, Box<dyn Error>> {
-        let paths = get_paths(issuer_uri)?;
+    pub async fn discover(issuer_url: &Url) -> Result<OidcConfig, Box<dyn Error>> {
+        let paths = get_paths(issuer_url)?;
         for path in paths {
             if let Ok(response) = reqwest::get(path).await {
                 if let Ok(oidc_config) = response.json().await {
@@ -33,9 +33,9 @@ impl OidcDiscovery {
     }
 }
 
-fn get_paths(issuer_uri: &Url) -> Result<HashSet<Url>, Box<dyn Error>> {
+fn get_paths(issuer_url: &Url) -> Result<HashSet<Url>, Box<dyn Error>> {
     let path_err =
-        || StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri));
+        || StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_url));
     let build_url = |base: &Url, segments: &[&str]| -> Result<Url, Box<dyn Error>> {
         let mut url = base.clone();
         url.path_segments_mut()
@@ -45,7 +45,7 @@ fn get_paths(issuer_uri: &Url) -> Result<HashSet<Url>, Box<dyn Error>> {
         Ok(url)
     };
 
-    let base_segments: Vec<_> = issuer_uri
+    let base_segments: Vec<_> = issuer_url
         .path_segments()
         .ok_or(path_err())?
         .filter(|p| !p.is_empty())
@@ -55,17 +55,17 @@ fn get_paths(issuer_uri: &Url) -> Result<HashSet<Url>, Box<dyn Error>> {
         {
             let mut segments = base_segments.clone();
             segments.extend(&[".well-known", "openid-configuration"]);
-            build_url(issuer_uri, &segments)
+            build_url(issuer_url, &segments)
         },
         {
             let mut segments = vec![".well-known", "openid-configuration"];
             segments.extend(base_segments.clone());
-            build_url(issuer_uri, &segments)
+            build_url(issuer_url, &segments)
         },
         {
             let mut segments = vec![".well-known", "oauth-authorization-server"];
             segments.extend(base_segments.clone());
-            build_url(issuer_uri, &segments)
+            build_url(issuer_url, &segments)
         },
     ];
 

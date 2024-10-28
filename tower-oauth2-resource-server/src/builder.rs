@@ -8,7 +8,7 @@ pub struct OAuth2ResourceServerBuilder<Claims>
 where
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
 {
-    issuer_uri: Option<String>,
+    issuer_url: Option<String>,
     jwks_uri: Option<String>,
     audiences: Vec<String>,
     jwk_set_refresh_interval: Duration,
@@ -22,7 +22,7 @@ where
 {
     pub fn new() -> Self {
         OAuth2ResourceServerBuilder::<Claims> {
-            issuer_uri: None,
+            issuer_url: None,
             jwks_uri: None,
             audiences: Vec::new(),
             jwk_set_refresh_interval: Duration::from_secs(60),
@@ -31,8 +31,8 @@ where
         }
     }
 
-    pub fn issuer_uri(mut self, issuer_uri: impl Into<String>) -> Self {
-        self.issuer_uri = Some(issuer_uri.into());
+    pub fn issuer_url(mut self, issuer_url: impl Into<String>) -> Self {
+        self.issuer_url = Some(issuer_url.into());
         self
     }
 
@@ -52,11 +52,11 @@ where
     }
 
     pub async fn build(self) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
-        let issuer_uri = self.issuer_uri.ok_or(StartupError::InvalidParameter(
-            "issuer_uri is required".to_owned(),
+        let issuer_url = self.issuer_url.ok_or(StartupError::InvalidParameter(
+            "issuer_url is required".to_owned(),
         ))?;
         OAuth2ResourceServer::new(
-            &issuer_uri,
+            &issuer_url,
             self.jwks_uri,
             self.audiences.clone(),
             self.jwk_set_refresh_interval,
@@ -91,7 +91,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
-            StartupError::InvalidParameter("issuer_uri is required".to_owned())
+            StartupError::InvalidParameter("issuer_url is required".to_owned())
         );
     }
 }

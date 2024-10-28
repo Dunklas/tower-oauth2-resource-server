@@ -36,14 +36,14 @@ where
     }
 
     pub(crate) async fn new(
-        issuer_uri: &str,
+        issuer_url: &str,
         jwks_uri: Option<String>,
         audiences: Vec<String>,
         jwk_set_refresh_interval: Duration,
         custom_claims_validation_spec: Option<ClaimsValidationSpec>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
         let (jwks_uri, claims_validation_spec) =
-            resolve_config(issuer_uri, jwks_uri, audiences).await?;
+            resolve_config(issuer_url, jwks_uri, audiences).await?;
         let claims_validation_spec =
             custom_claims_validation_spec.unwrap_or(claims_validation_spec);
         info!(
@@ -100,12 +100,12 @@ where
 }
 
 async fn resolve_config(
-    issuer_uri: &str,
+    issuer_url: &str,
     jwks_uri: Option<String>,
     audiences: Vec<String>,
 ) -> Result<(Url, ClaimsValidationSpec), StartupError> {
     let mut claims_spec = ClaimsValidationSpec::new()
-        .iss(issuer_uri)
+        .iss(issuer_url)
         .aud(audiences)
         .exp(true);
 
@@ -116,8 +116,8 @@ async fn resolve_config(
         return Ok((jwks_uri, claims_spec));
     }
 
-    let issuer_url = issuer_uri.parse::<Url>().map_err(|_| {
-        StartupError::InvalidParameter(format!("Invalid issuer_uri: {}", issuer_uri))
+    let issuer_url = issuer_url.parse::<Url>().map_err(|_| {
+        StartupError::InvalidParameter(format!("Invalid issuer_url: {}", issuer_url))
     })?;
     let oidc_config = OidcDiscovery::discover(&issuer_url)
         .await

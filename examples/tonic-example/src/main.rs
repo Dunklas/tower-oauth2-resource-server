@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
         .audiences(&["tors-example"])
-        .issuer_uri(format!(
+        .issuer_url(format!(
             "http://{}:{}/realms/tors",
             oidc_provider_host, oidc_provider_port
         ))

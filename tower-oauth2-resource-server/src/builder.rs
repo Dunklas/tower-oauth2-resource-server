@@ -56,7 +56,7 @@ where
             "issuer_uri is required".to_owned(),
         ))?;
         OAuth2ResourceServer::new(
-            issuer_uri,
+            &issuer_uri,
             self.jwks_uri,
             self.audiences.clone(),
             self.jwk_set_refresh_interval,

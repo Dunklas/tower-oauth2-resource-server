@@ -8,8 +8,14 @@ Main inspiration for this middleware (both in naming and functionality) is [Spri
 
 The `issuer_uri` property is used to configure what authorization server to use.
 
-On startup, the OIDC Provider Configuration endpoint (`<issuer_uri>/.well-known/openid-configuration`) will be queried in order to self-configure the middleware.
-A consequence of this is that the authorization server must be available when the middleware is started.
+On startup, the OIDC Provider Configuration endpoint of the authorization server will be queried in order to self-configure the middleware.
+If `issuer_uri` is set to `https://authorization-server.com/issuer`, at least one of the following endpoints need to available.
+
+ - `https://authorization-server.com/issuer/.well-known/openid-configuration`
+ - `https://authorization-server.com/.well-known/openid-configuration/issuer`
+ - `https://authorization-server.com/.well-known/oauth-authorization-server/issuer`
+
+A consequence of the self-configuration is that the authorization server must be available when the middleware is started.
 
 In cases where the middleware must be able to start independently from the authorization server, the `jwks_uri` property can be set.
 This will prevent the self-configuration on start up.

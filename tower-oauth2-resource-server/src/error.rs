@@ -1,9 +1,11 @@
+use std::{error::Error, fmt::Display};
+
 use http::{header::WWW_AUTHENTICATE, HeaderValue, Response, StatusCode};
 
 #[derive(Debug, PartialEq)]
 pub enum StartupError {
     InvalidParameter(String),
-    OidcDiscoveryFailed,
+    OidcDiscoveryFailed(String),
 }
 
 #[derive(Debug, PartialEq)]
@@ -44,3 +46,10 @@ where
         response
     }
 }
+
+impl Display for StartupError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+impl Error for StartupError {}

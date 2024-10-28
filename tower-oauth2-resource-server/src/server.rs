@@ -4,6 +4,7 @@ use std::{sync::Arc, time::Duration};
 use http::Request;
 use log::{debug, info};
 use serde::de::DeserializeOwned;
+use url::Url;
 
 use crate::{
     builder::OAuth2ResourceServerBuilder,
@@ -12,9 +13,13 @@ use crate::{
     jwks::JwksDecodingKeysProvider,
     jwt::{BearerTokenJwtExtractor, JwtExtractor, JwtValidator, OnlyJwtValidator},
     layer::OAuth2ResourceServerLayer,
-    oidc::OidcConfigProvider,
     validation::ClaimsValidationSpec,
 };
+
+use mockall_double::double;
+
+#[double]
+use crate::oidc::OidcDiscovery;
 
 #[derive(Clone)]
 pub struct OAuth2ResourceServer<Claims = DefaultClaims> {
@@ -31,14 +36,16 @@ where
     }
 
     pub(crate) async fn new(
-        issuer_uri: String,
+        issuer_uri: &str,
         jwks_uri: Option<String>,
         audiences: Vec<String>,
         jwk_set_refresh_interval: Duration,
-        claims_validation_spec: Option<ClaimsValidationSpec>,
+        custom_claims_validation_spec: Option<ClaimsValidationSpec>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
         let (jwks_uri, claims_validation_spec) =
-            resolve_config(issuer_uri, jwks_uri, audiences, claims_validation_spec).await?;
+            resolve_config(issuer_uri, jwks_uri, audiences).await?;
+        let claims_validation_spec =
+            custom_claims_validation_spec.unwrap_or(claims_validation_spec);
         info!(
             "Will validate the following claims: {}",
             claims_validation_spec
@@ -93,31 +100,80 @@ where
 }
 
 async fn resolve_config(
-    issuer_uri: String,
+    issuer_uri: &str,
     jwks_uri: Option<String>,
     audiences: Vec<String>,
-    claims_validation_spec: Option<ClaimsValidationSpec>,
 ) -> Result<(String, ClaimsValidationSpec), StartupError> {
     let mut claims_spec = ClaimsValidationSpec::new()
-        .iss(&issuer_uri)
+        .iss(issuer_uri)
         .aud(audiences)
         .exp(true);
 
     if let Some(jwks_uri) = jwks_uri {
-        return Ok((jwks_uri, claims_validation_spec.unwrap_or(claims_spec)));
+        return Ok((jwks_uri, claims_spec));
     }
 
-    let oidc_config = OidcConfigProvider::from_issuer_uri(&issuer_uri)
+    let issuer_url = issuer_uri.parse::<Url>().map_err(|_| {
+        StartupError::InvalidParameter(format!("Invalid issuer_uri: {}", issuer_uri))
+    })?;
+    let oidc_config = OidcDiscovery::discover(&issuer_url)
         .await
-        .map_err(|_| StartupError::OidcDiscoveryFailed)?
-        .config;
+        .map_err(|e| StartupError::OidcDiscoveryFailed(e.to_string()))?;
+
     if let Some(claims_supported) = &oidc_config.claims_supported {
         if claims_supported.contains(&"nbf".to_owned()) {
             claims_spec = claims_spec.nbf(true);
         }
     }
-    Ok((
-        oidc_config.jwks_uri,
-        claims_validation_spec.unwrap_or(claims_spec),
-    ))
+    Ok((oidc_config.jwks_uri, claims_spec))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::oidc::{MockOidcDiscovery, OidcConfig};
+    use std::sync::Mutex;
+
+    static MTX: Mutex<()> = Mutex::new(());
+
+    #[tokio::test]
+    async fn test_should_perform_oidc_discovery() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect()
+            .returning(|_| {
+                Ok(OidcConfig {
+                    jwks_uri: "".to_owned(),
+                    claims_supported: None,
+                })
+            })
+            .once();
+
+        let result = <OAuth2ResourceServer>::new(
+            "http://some-issuer.com",
+            None,
+            vec![],
+            Duration::from_secs(1),
+            None,
+        )
+        .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_skip_oidc_discovery_if_jwks_uri_set() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().never();
+
+        let result = <OAuth2ResourceServer>::new(
+            "http://some-issuer.com",
+            Some("https://some-issuer.com/jwks".to_owned()),
+            vec![],
+            Duration::from_secs(1),
+            None,
+        )
+        .await;
+        assert!(result.is_ok());
+    }
 }

@@ -53,7 +53,7 @@ where
         Ok(OAuth2ResourceServer {
             jwt_validator: Arc::new(OnlyJwtValidator::new(
                 Arc::new(JwksDecodingKeysProvider::new(
-                    &jwks_uri,
+                    jwks_uri,
                     jwk_set_refresh_interval,
                 )),
                 claims_validation_spec,
@@ -103,13 +103,16 @@ async fn resolve_config(
     issuer_uri: &str,
     jwks_uri: Option<String>,
     audiences: Vec<String>,
-) -> Result<(String, ClaimsValidationSpec), StartupError> {
+) -> Result<(Url, ClaimsValidationSpec), StartupError> {
     let mut claims_spec = ClaimsValidationSpec::new()
         .iss(issuer_uri)
         .aud(audiences)
         .exp(true);
 
     if let Some(jwks_uri) = jwks_uri {
+        let jwks_uri = jwks_uri.parse::<Url>().map_err(|_| {
+            StartupError::InvalidParameter(format!("Invalid jwks_uri: {}", jwks_uri))
+        })?;
         return Ok((jwks_uri, claims_spec));
     }
 
@@ -143,7 +146,7 @@ mod tests {
         ctx.expect()
             .returning(|_| {
                 Ok(OidcConfig {
-                    jwks_uri: "".to_owned(),
+                    jwks_uri: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
                     claims_supported: None,
                 })
             })

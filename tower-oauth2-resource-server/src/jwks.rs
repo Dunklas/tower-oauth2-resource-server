@@ -4,6 +4,7 @@ use jsonwebtoken::{
     DecodingKey,
 };
 use log::{info, warn};
+use reqwest::Url;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
     sync::RwLock,
@@ -25,7 +26,7 @@ pub struct JwksDecodingKeysProvider {
 }
 
 impl JwksDecodingKeysProvider {
-    pub fn new(jwks_uri: &str, refresh_interval: Duration) -> Self {
+    pub fn new(jwks_uri: Url, refresh_interval: Duration) -> Self {
         let decoding_keys = Arc::new(RwLock::new(HashMap::new()));
         tokio::spawn(Self::fetch_jwks_job(
             jwks_uri.to_owned(),
@@ -36,14 +37,14 @@ impl JwksDecodingKeysProvider {
     }
 
     async fn fetch_jwks_job(
-        jwks_uri: String,
+        jwks_uri: Url,
         decoding_keys: Arc<RwLock<HashMap<String, Arc<DecodingKey>>>>,
         refresh_interval: Duration,
     ) {
         let mut interval = time::interval(refresh_interval);
         loop {
             interval.tick().await;
-            match fetch_jwks(&jwks_uri).await {
+            match fetch_jwks(jwks_uri.clone()).await {
                 Ok(jwks) => match jwks
                     .keys
                     .into_iter()
@@ -75,7 +76,7 @@ impl DecodingKeysProvider for JwksDecodingKeysProvider {
     }
 }
 
-async fn fetch_jwks(jwks_uri: &str) -> Result<JwkSet, JwkError> {
+async fn fetch_jwks(jwks_uri: Url) -> Result<JwkSet, JwkError> {
     let response = reqwest::get(jwks_uri)
         .await
         .map_err(|_| JwkError::FetchFailed)?;

@@ -17,7 +17,7 @@ If `issuer_url` is set to `https://authorization-server.com/issuer`, at least on
 
 A consequence of the self-configuration is that the authorization server must be available when the middleware is started.
 
-In cases where the middleware must be able to start independently from the authorization server, the `jwks_uri` property can be set.
+In cases where the middleware must be able to start independently from the authorization server, the `jwks_url` property can be set.
 This will prevent the self-configuration on start up.
 
 **Note** that it's still required to provide `issuer_url`, since it's used to validate the `iss` claim in JWTs.

@@ -15,7 +15,7 @@ use wiremock::{
 #[derive(Serialize)]
 struct OpenIdConfig {
     pub issuer: String,
-    pub jwks_uri: String,
+    pub jwks_url: String,
 }
 
 #[derive(Serialize)]
@@ -41,7 +41,7 @@ pub async fn mock_oidc_config(mock_server: &MockServer, issuer: &str) {
         .and(path("/.well-known/openid-configuration"))
         .respond_with(ResponseTemplate::new(200).set_body_json(OpenIdConfig {
             issuer: issuer.to_owned(),
-            jwks_uri: format!("{}/jwks", &mock_server.uri()),
+            jwks_url: format!("{}/jwks", &mock_server.uri()),
         }))
         .mount(mock_server)
         .await;

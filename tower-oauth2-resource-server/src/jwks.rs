@@ -26,10 +26,10 @@ pub struct JwksDecodingKeysProvider {
 }
 
 impl JwksDecodingKeysProvider {
-    pub fn new(jwks_uri: Url, refresh_interval: Duration) -> Self {
+    pub fn new(jwks_url: Url, refresh_interval: Duration) -> Self {
         let decoding_keys = Arc::new(RwLock::new(HashMap::new()));
         tokio::spawn(Self::fetch_jwks_job(
-            jwks_uri.to_owned(),
+            jwks_url.to_owned(),
             decoding_keys.clone(),
             refresh_interval,
         ));
@@ -37,14 +37,14 @@ impl JwksDecodingKeysProvider {
     }
 
     async fn fetch_jwks_job(
-        jwks_uri: Url,
+        jwks_url: Url,
         decoding_keys: Arc<RwLock<HashMap<String, Arc<DecodingKey>>>>,
         refresh_interval: Duration,
     ) {
         let mut interval = time::interval(refresh_interval);
         loop {
             interval.tick().await;
-            match fetch_jwks(jwks_uri.clone()).await {
+            match fetch_jwks(jwks_url.clone()).await {
                 Ok(jwks) => match jwks
                     .keys
                     .into_iter()
@@ -76,8 +76,8 @@ impl DecodingKeysProvider for JwksDecodingKeysProvider {
     }
 }
 
-async fn fetch_jwks(jwks_uri: Url) -> Result<JwkSet, JwkError> {
-    let response = reqwest::get(jwks_uri)
+async fn fetch_jwks(jwks_url: Url) -> Result<JwkSet, JwkError> {
+    let response = reqwest::get(jwks_url)
         .await
         .map_err(|_| JwkError::FetchFailed)?;
     let parsed = response

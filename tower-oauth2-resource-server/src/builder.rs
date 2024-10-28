@@ -9,7 +9,7 @@ where
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
 {
     issuer_url: Option<String>,
-    jwks_uri: Option<String>,
+    jwks_url: Option<String>,
     audiences: Vec<String>,
     jwk_set_refresh_interval: Duration,
     claims_validation_spec: Option<ClaimsValidationSpec>,
@@ -23,7 +23,7 @@ where
     pub fn new() -> Self {
         OAuth2ResourceServerBuilder::<Claims> {
             issuer_url: None,
-            jwks_uri: None,
+            jwks_url: None,
             audiences: Vec::new(),
             jwk_set_refresh_interval: Duration::from_secs(60),
             claims_validation_spec: None,
@@ -36,8 +36,8 @@ where
         self
     }
 
-    pub fn jwks_uri(mut self, jwks_uri: impl Into<String>) -> Self {
-        self.jwks_uri = Some(jwks_uri.into());
+    pub fn jwks_url(mut self, jwks_url: impl Into<String>) -> Self {
+        self.jwks_url = Some(jwks_url.into());
         self
     }
 
@@ -57,7 +57,7 @@ where
         ))?;
         OAuth2ResourceServer::new(
             &issuer_url,
-            self.jwks_uri,
+            self.jwks_url,
             self.audiences.clone(),
             self.jwk_set_refresh_interval,
             self.claims_validation_spec,

@@ -37,13 +37,13 @@ where
 
     pub(crate) async fn new(
         issuer_url: &str,
-        jwks_uri: Option<String>,
+        jwks_url: Option<String>,
         audiences: Vec<String>,
         jwk_set_refresh_interval: Duration,
         custom_claims_validation_spec: Option<ClaimsValidationSpec>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
-        let (jwks_uri, claims_validation_spec) =
-            resolve_config(issuer_url, jwks_uri, audiences).await?;
+        let (jwks_url, claims_validation_spec) =
+            resolve_config(issuer_url, jwks_url, audiences).await?;
         let claims_validation_spec =
             custom_claims_validation_spec.unwrap_or(claims_validation_spec);
         info!(
@@ -53,7 +53,7 @@ where
         Ok(OAuth2ResourceServer {
             jwt_validator: Arc::new(OnlyJwtValidator::new(
                 Arc::new(JwksDecodingKeysProvider::new(
-                    jwks_uri,
+                    jwks_url,
                     jwk_set_refresh_interval,
                 )),
                 claims_validation_spec,
@@ -101,7 +101,7 @@ where
 
 async fn resolve_config(
     issuer_url: &str,
-    jwks_uri: Option<String>,
+    jwks_url: Option<String>,
     audiences: Vec<String>,
 ) -> Result<(Url, ClaimsValidationSpec), StartupError> {
     let mut claims_spec = ClaimsValidationSpec::new()
@@ -109,11 +109,11 @@ async fn resolve_config(
         .aud(audiences)
         .exp(true);
 
-    if let Some(jwks_uri) = jwks_uri {
-        let jwks_uri = jwks_uri.parse::<Url>().map_err(|_| {
-            StartupError::InvalidParameter(format!("Invalid jwks_uri: {}", jwks_uri))
+    if let Some(jwks_url) = jwks_url {
+        let jwks_url = jwks_url.parse::<Url>().map_err(|_| {
+            StartupError::InvalidParameter(format!("Invalid jwks_url: {}", jwks_url))
         })?;
-        return Ok((jwks_uri, claims_spec));
+        return Ok((jwks_url, claims_spec));
     }
 
     let issuer_url = issuer_url.parse::<Url>().map_err(|_| {
@@ -128,7 +128,7 @@ async fn resolve_config(
             claims_spec = claims_spec.nbf(true);
         }
     }
-    Ok((oidc_config.jwks_uri, claims_spec))
+    Ok((oidc_config.jwks_url, claims_spec))
 }
 
 #[cfg(test)]
@@ -146,7 +146,7 @@ mod tests {
         ctx.expect()
             .returning(|_| {
                 Ok(OidcConfig {
-                    jwks_uri: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
+                    jwks_url: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
                     claims_supported: None,
                 })
             })
@@ -164,7 +164,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_should_skip_oidc_discovery_if_jwks_uri_set() {
+    async fn test_should_skip_oidc_discovery_if_jwks_url_set() {
         let _m = MTX.lock();
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().never();

@@ -95,7 +95,6 @@ async fn ok() {
     // Needed for initial jwks fetch
     sleep(Duration::from_millis(100)).await;
 
-    println!("DEBUG1: {:?}", mock_server.uri());
     let token = jwt_from(
         &private_key,
         "good_key",

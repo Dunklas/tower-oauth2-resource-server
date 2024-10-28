@@ -96,12 +96,12 @@ async fn ok() {
     // Needed for initial jwks fetch
     sleep(Duration::from_millis(100)).await;
 
+    println!("DEBUG1: {:?}", mock_server.uri());
     let token = jwt_from(
         &private_key,
         "good_key",
         serde_json::json!({
-            // TODO: Should NOT add trailing slash for issuer uri
-            "iss": format!("{}/", mock_server.uri()),
+            "iss": mock_server.uri(),
             "sub": "Some dude",
             "aud": vec!["https://some-resource-server.com"],
             "nbf": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 10,

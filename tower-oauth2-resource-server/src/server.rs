@@ -105,9 +105,12 @@ async fn resolve_config(
     audiences: Vec<String>,
 ) -> Result<(String, ClaimsValidationSpec), StartupError> {
     let mut claims_spec = ClaimsValidationSpec::new()
+        // http://127.0.0.1:42203 becomes http://127.0.0.1:42203/ here
+        // TODO: Maybe need to take issuer_uri as str?
         .iss(issuer_uri.as_ref())
         .aud(audiences)
         .exp(true);
+    println!("DEBUG: {:?}", claims_spec);
 
     if let Some(jwks_uri) = jwks_uri {
         return Ok((jwks_uri, claims_spec));

@@ -34,12 +34,12 @@ impl OidcDiscovery {
 }
 
 fn get_paths(issuer_uri: &Url) -> Result<HashSet<Url>, Box<dyn Error>> {
+    let path_err =
+        || StartupError::InvalidParameter(format!("Could not parse issuer: {}", issuer_uri));
     let build_url = |base: &Url, segments: &[&str]| -> Result<Url, Box<dyn Error>> {
         let mut url = base.clone();
         url.path_segments_mut()
-            .map_err(|_| {
-                StartupError::InvalidParameter(format!("Could not parse issuer: {}", base))
-            })?
+            .map_err(|_| path_err())?
             .clear()
             .extend(segments);
         Ok(url)
@@ -47,27 +47,15 @@ fn get_paths(issuer_uri: &Url) -> Result<HashSet<Url>, Box<dyn Error>> {
 
     let base_segments: Vec<_> = issuer_uri
         .path_segments()
-        .ok_or(StartupError::InvalidParameter(format!(
-            "Could not parse issuer: {}",
-            issuer_uri
-        )))?
+        .ok_or(path_err())?
         .filter(|p| !p.is_empty())
         .collect();
 
     let paths = vec![
         {
-            let mut first = issuer_uri.clone();
-            first
-                .path_segments_mut()
-                .map_err(|_| {
-                    StartupError::InvalidParameter(format!(
-                        "Could not parse issuer: {}",
-                        issuer_uri
-                    ))
-                })?
-                .pop_if_empty()
-                .extend(&[".well-known", "openid-configuration"]);
-            Ok(first)
+            let mut segments = base_segments.clone();
+            segments.extend(&[".well-known", "openid-configuration"]);
+            build_url(issuer_uri, &segments)
         },
         {
             let mut segments = vec![".well-known", "openid-configuration"];

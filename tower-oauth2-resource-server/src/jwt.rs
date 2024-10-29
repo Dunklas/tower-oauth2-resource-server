@@ -62,7 +62,7 @@ impl JwksConsumer for OnlyJwtValidator {
     async fn receive_jwks(&self, jwks: JwkSet) {
         match jwks
             .keys
-            .into_iter()
+            .iter()
             .map(to_decoding_key)
             .collect::<Result<HashMap<_, _>, _>>()
         {
@@ -78,15 +78,15 @@ impl JwksConsumer for OnlyJwtValidator {
     }
 }
 
-fn to_decoding_key(jwk: Jwk) -> Result<(String, DecodingKey), JwkError> {
-    let key_id = jwk.common.key_id.ok_or(JwkError::MissingKeyId)?;
-    let decoding_key = match jwk.algorithm {
+fn to_decoding_key(jwk: &Jwk) -> Result<(String, DecodingKey), JwkError> {
+    let key_id = jwk.common.key_id.as_ref().ok_or(JwkError::MissingKeyId)?;
+    let decoding_key = match &jwk.algorithm {
         AlgorithmParameters::RSA(rsa) => {
             DecodingKey::from_rsa_components(&rsa.n, &rsa.e).or(Err(JwkError::DecodingFailed))
         }
         _ => Err(JwkError::UnexpectedAlgorithm),
     }?;
-    Ok((key_id, decoding_key))
+    Ok((key_id.clone(), decoding_key))
 }
 
 #[async_trait]

@@ -1,12 +1,21 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use http::HeaderMap;
-use jsonwebtoken::{decode, decode_header, Algorithm, Validation};
-use log::info;
+use jsonwebtoken::{
+    decode, decode_header,
+    jwk::{AlgorithmParameters, Jwk, JwkSet},
+    Algorithm, DecodingKey, Validation,
+};
+use log::{info, warn};
 use serde::de::DeserializeOwned;
+use tokio::sync::RwLock;
 
-use crate::{error::AuthError, jwks::DecodingKeysProvider, jwks2::JwksConsumer, validation::ClaimsValidationSpec};
+use crate::{
+    error::{AuthError, JwkError},
+    jwks2::JwksConsumer,
+    validation::ClaimsValidationSpec,
+};
 
 pub trait JwtExtractor {
     fn extract_jwt(&self, headers: &HeaderMap) -> Result<String, AuthError>;
@@ -33,38 +42,52 @@ pub trait JwtValidator<Claims> {
 }
 
 pub struct OnlyJwtValidator {
-    decoding_keys_provider: Arc<dyn DecodingKeysProvider + Send + Sync>,
     claims_validation: ClaimsValidationSpec,
+    decoding_keys: Arc<RwLock<HashMap<String, DecodingKey>>>,
+    validations: Arc<RwLock<HashMap<String, Validation>>>,
 }
 
 impl OnlyJwtValidator {
-    pub fn new(
-        decoding_keys_provider: Arc<dyn DecodingKeysProvider + Send + Sync>,
-        claims_validation: ClaimsValidationSpec,
-    ) -> Self {
+    pub fn new(claims_validation: ClaimsValidationSpec) -> Self {
         Self {
-            decoding_keys_provider,
             claims_validation,
+            decoding_keys: Arc::new(RwLock::new(HashMap::new())),
+            validations: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }
 
+#[async_trait]
 impl JwksConsumer for OnlyJwtValidator {
-    fn receive_jwks(&self, jwks: jsonwebtoken::jwk::JwkSet) {
-        info!("Got JWKS in consumer: {:?}", jwks);
+    async fn receive_jwks(&self, jwks: JwkSet) {
+        match jwks
+            .keys
+            .into_iter()
+            .map(to_decoding_key)
+            .collect::<Result<HashMap<_, _>, _>>()
+        {
+            Ok(decoding_keys) => {
+                let mut keys = self.decoding_keys.write().await;
+                *keys = decoding_keys;
+                info!("Successfully updated JWK set");
+            }
+            Err(e) => {
+                warn!("Unable to parse at least one JWK due to: {:?}", e);
+            }
+        };
     }
 }
 
-/*
- * I'd like to achieve that Validation is not created once per request, but rather:
- *   - Once at start up (won't support new algorithms used by auth server)
- *   - When JWKS is fetched
- * I'm not sure of how heavy the operation of creating a Validation is,
- * but it just seems unneccesary.
- *
- * One approach could be to provide a callback to DecodingKeysProvider,
- * and move the state in here?
- */
+fn to_decoding_key(jwk: Jwk) -> Result<(String, DecodingKey), JwkError> {
+    let key_id = jwk.common.key_id.ok_or(JwkError::MissingKeyId)?;
+    let decoding_key = match jwk.algorithm {
+        AlgorithmParameters::RSA(rsa) => {
+            DecodingKey::from_rsa_components(&rsa.n, &rsa.e).or(Err(JwkError::DecodingFailed))
+        }
+        _ => Err(JwkError::UnexpectedAlgorithm),
+    }?;
+    Ok((key_id, decoding_key))
+}
 
 #[async_trait]
 impl<Claims> JwtValidator<Claims> for OnlyJwtValidator
@@ -74,11 +97,9 @@ where
     async fn validate(&self, token: &str) -> Result<Claims, AuthError> {
         let header = decode_header(token).or(Err(AuthError::ParseJwtError))?;
         let key_id = header.kid.ok_or(AuthError::ParseJwtError)?;
-        let decoding_key = self
-            .decoding_keys_provider
-            .get_decoding_key(&key_id)
-            .await
-            .ok_or(AuthError::InvalidKeyId)?;
+
+        let decoding_keys = self.decoding_keys.read().await;
+        let decoding_key = decoding_keys.get(&key_id).ok_or(AuthError::InvalidKeyId)?;
         let validation = self.jwt_validation(header.alg, &self.claims_validation);
         match decode::<Claims>(token, &decoding_key, &validation) {
             Ok(result) => Ok(result.claims),
@@ -133,9 +154,7 @@ mod tests {
         time::{SystemTime, UNIX_EPOCH},
     };
 
-    use crate::{
-        error::AuthError, jwks::MockDecodingKeysProvider, validation::ClaimsValidationSpec,
-    };
+    use crate::{error::AuthError, validation::ClaimsValidationSpec};
 
     use super::{JwtValidator, OnlyJwtValidator};
 
@@ -366,17 +385,10 @@ mod tests {
     }
 
     fn create_validator(claims_validation: ClaimsValidationSpec) -> Box<dyn JwtValidator<Claims>> {
-        let mut decoding_keys_mock = MockDecodingKeysProvider::new();
-        decoding_keys_mock
-            .expect_get_decoding_key()
-            .return_once(|kid| match kid == DEFAULT_KID.to_string() {
-                true => Some(DECODING_KEY.clone()),
-                false => None,
-            });
-        Box::new(OnlyJwtValidator::new(
-            Arc::new(decoding_keys_mock),
-            claims_validation,
-        ))
+        let validator = OnlyJwtValidator::new(claims_validation);
+        // No idea how to mock Jwks
+        // validator.receive_jwks();
+        Box::new(validator)
     }
 
     fn jwt_from(claims: &Value, kid: Option<String>) -> String {

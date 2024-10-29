@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use jsonwebtoken::jwk::JwkSet;
 use log::{info, warn};
 use reqwest::Url;
@@ -11,8 +12,9 @@ pub trait JwksProducer {
     fn start(&self);
 }
 
+#[async_trait]
 pub trait JwksConsumer: Send + Sync {
-    fn receive_jwks(&self, jwks: JwkSet);
+    async fn receive_jwks(&self, jwks: JwkSet);
 }
 
 pub struct TimerJwksProducer {
@@ -55,9 +57,8 @@ async fn fetch_jwks_job(
         interval.tick().await;
         match fetch_jwks(jwks_url.clone()).await {
             Ok(jwks) => {
-                info!("Successfully fetched JWK set");
                 for receiver in &receivers {
-                    receiver.receive_jwks(jwks.clone());
+                    receiver.receive_jwks(jwks.clone()).await;
                 }
             }
             Err(e) => {

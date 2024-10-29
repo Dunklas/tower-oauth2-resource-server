@@ -6,17 +6,22 @@ use tokio::time;
 
 use crate::error::JwkError;
 
+pub trait JwksProducer {
+    fn add_receiver(&mut self, receiver: Arc<dyn JwksConsumer>);
+    fn start(&self);
+}
+
 pub trait JwksConsumer: Send + Sync {
     fn receive_jwks(&self, jwks: JwkSet);
 }
 
-pub struct JwksProducer {
+pub struct TimerJwksProducer {
     jwks_url: Url,
     refresh_interval: Duration,
     receivers: Vec<Arc<dyn JwksConsumer>>,
 }
 
-impl JwksProducer {
+impl TimerJwksProducer {
     pub fn new(jwks_url: Url, refresh_interval: Duration) -> Self {
         Self {
             jwks_url,
@@ -24,12 +29,14 @@ impl JwksProducer {
             receivers: Vec::new(),
         }
     }
+}
 
-    pub fn add_receiver(&mut self, receiver: Arc<dyn JwksConsumer>) {
+impl JwksProducer for TimerJwksProducer {
+    fn add_receiver(&mut self, receiver: Arc<dyn JwksConsumer>) {
         self.receivers.push(receiver);
     }
 
-    pub fn start(&self) {
+    fn start(&self) {
         tokio::spawn(fetch_jwks_job(
             self.jwks_url.clone(),
             self.refresh_interval,

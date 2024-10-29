@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::{
-    builder::OAuth2ResourceServerBuilder, claims::DefaultClaims, error::{AuthError, StartupError}, jwks::JwksDecodingKeysProvider, jwks2::JwksProducer, jwt::{BearerTokenJwtExtractor, JwtExtractor, JwtValidator, OnlyJwtValidator}, layer::OAuth2ResourceServerLayer, validation::ClaimsValidationSpec
+    builder::OAuth2ResourceServerBuilder, claims::DefaultClaims, error::{AuthError, StartupError}, jwks::JwksDecodingKeysProvider, jwks2::{JwksProducer, TimerJwksProducer}, jwt::{BearerTokenJwtExtractor, JwtExtractor, JwtValidator, OnlyJwtValidator}, layer::OAuth2ResourceServerLayer, validation::ClaimsValidationSpec
 };
 
 use mockall_double::double;
@@ -19,6 +19,7 @@ use crate::oidc::OidcDiscovery;
 pub struct OAuth2ResourceServer<Claims = DefaultClaims> {
     jwt_validator: Arc<dyn JwtValidator<Claims> + Send + Sync>,
     jwt_extractor: Arc<dyn JwtExtractor + Send + Sync>,
+    jwks_producer: Arc<dyn JwksProducer + Send + Sync>
 }
 
 impl<Claims> OAuth2ResourceServer<Claims>
@@ -45,18 +46,24 @@ where
             claims_validation_spec
         );
 
-        let jwks_producer = JwksProducer::new(jwks_url.clone(), jwk_set_refresh_interval);
-        jwks_producer.start();
-
-        Ok(OAuth2ResourceServer {
-            jwt_validator: Arc::new(OnlyJwtValidator::new(
+        let validator = Arc::new(OnlyJwtValidator::new(
                 Arc::new(JwksDecodingKeysProvider::new(
-                    jwks_url,
+                    jwks_url.clone(),
                     jwk_set_refresh_interval,
                 )),
                 claims_validation_spec,
-            )),
+            ));
+        
+
+        let mut jwks_producer = TimerJwksProducer::new(jwks_url.clone(), jwk_set_refresh_interval);
+        jwks_producer.add_receiver(validator.clone());
+        jwks_producer.start();
+
+        
+        Ok(OAuth2ResourceServer {
+            jwt_validator: validator,
             jwt_extractor: Arc::new(BearerTokenJwtExtractor {}),
+            jwks_producer: Arc::new(jwks_producer)
         })
     }
 

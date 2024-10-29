@@ -3,9 +3,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use http::HeaderMap;
 use jsonwebtoken::{decode, decode_header, Algorithm, Validation};
+use log::info;
 use serde::de::DeserializeOwned;
 
-use crate::{error::AuthError, jwks::DecodingKeysProvider, validation::ClaimsValidationSpec};
+use crate::{error::AuthError, jwks::DecodingKeysProvider, jwks2::JwksConsumer, validation::ClaimsValidationSpec};
 
 pub trait JwtExtractor {
     fn extract_jwt(&self, headers: &HeaderMap) -> Result<String, AuthError>;
@@ -45,6 +46,12 @@ impl OnlyJwtValidator {
             decoding_keys_provider,
             claims_validation,
         }
+    }
+}
+
+impl JwksConsumer for OnlyJwtValidator {
+    fn receive_jwks(&self, jwks: jsonwebtoken::jwk::JwkSet) {
+        info!("Got JWKS: {:?}", jwks);
     }
 }
 

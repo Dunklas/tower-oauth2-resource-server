@@ -10,7 +10,7 @@ use crate::{
     builder::OAuth2ResourceServerBuilder,
     claims::DefaultClaims,
     error::{AuthError, StartupError},
-    jwks2::{JwksProducer, TimerJwksProducer},
+    jwks::{JwksProducer, TimerJwksProducer},
     jwt::{BearerTokenJwtExtractor, JwtExtractor, JwtValidator, OnlyJwtValidator},
     layer::OAuth2ResourceServerLayer,
     validation::ClaimsValidationSpec,

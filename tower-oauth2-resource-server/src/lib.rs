@@ -5,6 +5,6 @@ pub mod server;
 pub mod validation;
 
 mod error;
-mod jwks2;
+mod jwks;
 mod jwt;
 mod oidc;

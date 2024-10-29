@@ -1,78 +1,70 @@
 use async_trait::async_trait;
-use jsonwebtoken::{
-    jwk::{AlgorithmParameters, Jwk, JwkSet},
-    DecodingKey,
-};
-use log::{info, warn};
+use jsonwebtoken::jwk::JwkSet;
+use log::warn;
 use reqwest::Url;
-use std::{collections::HashMap, sync::Arc};
-use tokio::{
-    sync::RwLock,
-    time::{self, Duration},
-};
+use std::{sync::Arc, time::Duration};
+use tokio::time;
 
 use crate::error::JwkError;
 
-#[cfg(test)]
-use mockall::automock;
-#[cfg_attr(test, automock)]
+pub trait JwksProducer {
+    fn add_receiver(&mut self, receiver: Arc<dyn JwksConsumer>);
+    fn start(&self);
+}
+
 #[async_trait]
-pub trait DecodingKeysProvider {
-    async fn get_decoding_key(&self, kid: &str) -> Option<Arc<DecodingKey>>;
+pub trait JwksConsumer: Send + Sync {
+    async fn receive_jwks(&self, jwks: JwkSet);
 }
 
-pub struct JwksDecodingKeysProvider {
-    decoding_keys: Arc<RwLock<HashMap<String, Arc<DecodingKey>>>>,
+pub struct TimerJwksProducer {
+    jwks_url: Url,
+    refresh_interval: Duration,
+    receivers: Vec<Arc<dyn JwksConsumer>>,
 }
 
-impl JwksDecodingKeysProvider {
+impl TimerJwksProducer {
     pub fn new(jwks_url: Url, refresh_interval: Duration) -> Self {
-        let decoding_keys = Arc::new(RwLock::new(HashMap::new()));
-        tokio::spawn(Self::fetch_jwks_job(
-            jwks_url.to_owned(),
-            decoding_keys.clone(),
+        Self {
+            jwks_url,
             refresh_interval,
-        ));
-        Self { decoding_keys }
-    }
-
-    async fn fetch_jwks_job(
-        jwks_url: Url,
-        decoding_keys: Arc<RwLock<HashMap<String, Arc<DecodingKey>>>>,
-        refresh_interval: Duration,
-    ) {
-        let mut interval = time::interval(refresh_interval);
-        loop {
-            interval.tick().await;
-            match fetch_jwks(jwks_url.clone()).await {
-                Ok(jwks) => match jwks
-                    .keys
-                    .into_iter()
-                    .map(to_decoding_key)
-                    .collect::<Result<HashMap<_, _>, _>>()
-                {
-                    Ok(new_decoding_keys) => {
-                        let mut keys = decoding_keys.write().await;
-                        info!("Successfully fetched JWK set");
-                        *keys = new_decoding_keys;
-                    }
-                    Err(e) => {
-                        warn!("Unable to parse at least one JWK due to: {:?}", e);
-                    }
-                },
-                Err(e) => {
-                    warn!("Failed to fetch JWK set: {:?}", e);
-                }
-            }
+            receivers: Vec::new(),
         }
     }
 }
 
-#[async_trait]
-impl DecodingKeysProvider for JwksDecodingKeysProvider {
-    async fn get_decoding_key(&self, kid: &str) -> Option<Arc<DecodingKey>> {
-        let keys = self.decoding_keys.read().await;
-        keys.get(kid).cloned()
+impl JwksProducer for TimerJwksProducer {
+    fn add_receiver(&mut self, receiver: Arc<dyn JwksConsumer>) {
+        self.receivers.push(receiver);
+    }
+
+    fn start(&self) {
+        tokio::spawn(fetch_jwks_job(
+            self.jwks_url.clone(),
+            self.refresh_interval,
+            self.receivers.clone(),
+        ));
+    }
+}
+
+async fn fetch_jwks_job(
+    jwks_url: Url,
+    refresh_interval: Duration,
+    receivers: Vec<Arc<dyn JwksConsumer>>,
+) {
+    let mut interval = time::interval(refresh_interval);
+    loop {
+        interval.tick().await;
+        match fetch_jwks(jwks_url.clone()).await {
+            Ok(jwks) => {
+                for receiver in &receivers {
+                    receiver.receive_jwks(jwks.clone()).await;
+                }
+            }
+            Err(e) => {
+                warn!("Failed to fetch JWK set: {:?}", e);
+            }
+        }
     }
 }
 
@@ -85,15 +77,4 @@ async fn fetch_jwks(jwks_url: Url) -> Result<JwkSet, JwkError> {
         .await
         .map_err(|_| JwkError::ParseFailed)?;
     Ok(parsed)
-}
-
-fn to_decoding_key(jwk: Jwk) -> Result<(String, Arc<DecodingKey>), JwkError> {
-    let key_id = jwk.common.key_id.ok_or(JwkError::MissingKeyId)?;
-    let decoding_key = match jwk.algorithm {
-        AlgorithmParameters::RSA(rsa) => {
-            DecodingKey::from_rsa_components(&rsa.n, &rsa.e).or(Err(JwkError::DecodingFailed))
-        }
-        _ => Err(JwkError::UnexpectedAlgorithm),
-    }?;
-    Ok((key_id, Arc::new(decoding_key)))
 }

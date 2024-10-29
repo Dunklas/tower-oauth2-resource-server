@@ -10,7 +10,7 @@ use crate::{
     builder::OAuth2ResourceServerBuilder,
     claims::DefaultClaims,
     error::{AuthError, StartupError},
-    jwks::JwksDecodingKeysProvider,
+    jwks::{JwksProducer, TimerJwksProducer},
     jwt::{BearerTokenJwtExtractor, JwtExtractor, JwtValidator, OnlyJwtValidator},
     layer::OAuth2ResourceServerLayer,
     validation::ClaimsValidationSpec,
@@ -25,6 +25,8 @@ use crate::oidc::OidcDiscovery;
 pub struct OAuth2ResourceServer<Claims = DefaultClaims> {
     jwt_validator: Arc<dyn JwtValidator<Claims> + Send + Sync>,
     jwt_extractor: Arc<dyn JwtExtractor + Send + Sync>,
+    #[allow(dead_code)]
+    jwks_producer: Arc<dyn JwksProducer + Send + Sync>,
 }
 
 impl<Claims> OAuth2ResourceServer<Claims>
@@ -50,15 +52,17 @@ where
             "Will validate the following claims: {}",
             claims_validation_spec
         );
+
+        let validator = Arc::new(OnlyJwtValidator::new(claims_validation_spec));
+
+        let mut jwks_producer = TimerJwksProducer::new(jwks_url.clone(), jwk_set_refresh_interval);
+        jwks_producer.add_receiver(validator.clone());
+        jwks_producer.start();
+
         Ok(OAuth2ResourceServer {
-            jwt_validator: Arc::new(OnlyJwtValidator::new(
-                Arc::new(JwksDecodingKeysProvider::new(
-                    jwks_url,
-                    jwk_set_refresh_interval,
-                )),
-                claims_validation_spec,
-            )),
+            jwt_validator: validator,
             jwt_extractor: Arc::new(BearerTokenJwtExtractor {}),
+            jwks_producer: Arc::new(jwks_producer),
         })
     }
 

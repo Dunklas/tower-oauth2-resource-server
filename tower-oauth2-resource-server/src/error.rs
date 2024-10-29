@@ -1,6 +1,7 @@
 use std::{error::Error, fmt::Display};
 
 use http::{header::WWW_AUTHENTICATE, HeaderValue, Response, StatusCode};
+use jsonwebtoken::Algorithm;
 
 #[derive(Debug, PartialEq)]
 pub enum StartupError {
@@ -23,6 +24,7 @@ pub enum AuthError {
     InvalidAuthorizationHeader,
     ParseJwtError,
     InvalidKeyId,
+    UnsupportedAlgorithm(Algorithm),
     ValidationFailed {
         reason: jsonwebtoken::errors::ErrorKind,
     },

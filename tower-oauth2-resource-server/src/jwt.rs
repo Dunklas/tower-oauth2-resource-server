@@ -180,17 +180,22 @@ fn parse_key_alg(key_alg: KeyAlgorithm) -> Option<Algorithm> {
 
 #[cfg(test)]
 mod tests {
-    use base64::{alphabet, engine::{self, general_purpose}, Engine};
-    use jsonwebtoken::{encode, errors::ErrorKind, jwk::{CommonParameters, Jwk, JwkSet}, DecodingKey, EncodingKey, Header};
-    use lazy_static::lazy_static;
-    use rsa::{
-        pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey
+    use base64::{
+        alphabet,
+        engine::{self, general_purpose},
+        Engine,
     };
+    use jsonwebtoken::{
+        encode,
+        errors::ErrorKind,
+        jwk::{Jwk, JwkSet},
+        EncodingKey, Header,
+    };
+    use lazy_static::lazy_static;
+    use rsa::{pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
     use serde::Deserialize;
     use serde_json::{json, Value};
-    use std::{
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     use crate::{error::AuthError, jwks::JwksConsumer, validation::ClaimsValidationSpec};
 
@@ -206,10 +211,9 @@ mod tests {
         static ref PUBLIC_KEY: RsaPublicKey = RsaPublicKey::from(PRIVATE_KEY.deref());
         static ref ENCODING_KEY: EncodingKey =
             EncodingKey::from_rsa_der(PRIVATE_KEY.to_pkcs1_der().unwrap().as_bytes());
-    static ref CUSTOM_ENGINE: engine::GeneralPurpose =
-    engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
+        static ref CUSTOM_ENGINE: engine::GeneralPurpose =
+            engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
     }
-
 
     #[tokio::test]
     async fn empty_token() {
@@ -325,7 +329,8 @@ mod tests {
         let validator = create_validator(
             ClaimsValidationSpec::new()
                 .aud(["https://some-resource.server.com".to_owned()].to_vec()),
-        ).await;
+        )
+        .await;
         let token = jwt_from(&serde_json::json!({}), Some(DEFAULT_KID.to_owned()));
 
         let result = validator.validate(&token).await;
@@ -344,7 +349,8 @@ mod tests {
         let validator = create_validator(
             ClaimsValidationSpec::new()
                 .aud(["https://some-resource-server.com".to_owned()].to_vec()),
-        ).await;
+        )
+        .await;
         let token = jwt_from(
             &serde_json::json!({
                 "aud": "https://another-resource-server.com",
@@ -422,7 +428,9 @@ mod tests {
         );
     }
 
-    async fn create_validator(claims_validation: ClaimsValidationSpec) -> Box<dyn JwtValidator<Claims>> {
+    async fn create_validator(
+        claims_validation: ClaimsValidationSpec,
+    ) -> Box<dyn JwtValidator<Claims>> {
         let validator = OnlyJwtValidator::new(claims_validation);
         let jwk: Jwk = serde_json::from_value(json!({
             "kty": "RSA",
@@ -431,10 +439,9 @@ mod tests {
             "kid": DEFAULT_KID.to_owned(),
             "n": CUSTOM_ENGINE.encode(PUBLIC_KEY.n().to_bytes_be()),
             "e": CUSTOM_ENGINE.encode(PUBLIC_KEY.e().to_bytes_be())
-        })).unwrap();
-        validator.receive_jwks(JwkSet {
-            keys: vec![jwk]
-        }).await;
+        }))
+        .unwrap();
+        validator.receive_jwks(JwkSet { keys: vec![jwk] }).await;
         Box::new(validator)
     }
 

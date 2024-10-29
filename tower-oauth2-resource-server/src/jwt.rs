@@ -51,7 +51,7 @@ impl OnlyJwtValidator {
 
 impl JwksConsumer for OnlyJwtValidator {
     fn receive_jwks(&self, jwks: jsonwebtoken::jwk::JwkSet) {
-        info!("Got JWKS: {:?}", jwks);
+        info!("Got JWKS in consumer: {:?}", jwks);
     }
 }
 

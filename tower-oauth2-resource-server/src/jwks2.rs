@@ -56,7 +56,9 @@ async fn fetch_jwks_job(
         match fetch_jwks(jwks_url.clone()).await {
             Ok(jwks) => {
                 info!("Successfully fetched JWK set");
-                // Notify each receiver
+                for receiver in &receivers {
+                    receiver.receive_jwks(jwks.clone());
+                }
             }
             Err(e) => {
                 warn!("Failed to fetch JWK set: {:?}", e);

@@ -48,6 +48,17 @@ impl OnlyJwtValidator {
     }
 }
 
+/*
+ * I'd like to achieve that Validation is not created once per request, but rather:
+ *   - Once at start up (won't support new algorithms used by auth server)
+ *   - When JWKS is fetched
+ * I'm not sure of how heavy the operation of creating a Validation is,
+ * but it just seems unneccesary.
+ *
+ * One approach could be to provide a callback to DecodingKeysProvider,
+ * and move the state in here?
+ */
+
 #[async_trait]
 impl<Claims> JwtValidator<Claims> for OnlyJwtValidator
 where

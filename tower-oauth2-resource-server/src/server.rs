@@ -7,13 +7,7 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::{
-    builder::OAuth2ResourceServerBuilder,
-    claims::DefaultClaims,
-    error::{AuthError, StartupError},
-    jwks::JwksDecodingKeysProvider,
-    jwt::{BearerTokenJwtExtractor, JwtExtractor, JwtValidator, OnlyJwtValidator},
-    layer::OAuth2ResourceServerLayer,
-    validation::ClaimsValidationSpec,
+    builder::OAuth2ResourceServerBuilder, claims::DefaultClaims, error::{AuthError, StartupError}, jwks::JwksDecodingKeysProvider, jwks2::JwksProducer, jwt::{BearerTokenJwtExtractor, JwtExtractor, JwtValidator, OnlyJwtValidator}, layer::OAuth2ResourceServerLayer, validation::ClaimsValidationSpec
 };
 
 use mockall_double::double;
@@ -50,6 +44,10 @@ where
             "Will validate the following claims: {}",
             claims_validation_spec
         );
+
+        let jwks_producer = JwksProducer::new(jwks_url.clone(), jwk_set_refresh_interval);
+        jwks_producer.start();
+
         Ok(OAuth2ResourceServer {
             jwt_validator: Arc::new(OnlyJwtValidator::new(
                 Arc::new(JwksDecodingKeysProvider::new(

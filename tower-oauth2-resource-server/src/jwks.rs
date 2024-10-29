@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use jsonwebtoken::jwk::JwkSet;
-use log::{info, warn};
+use log::warn;
 use reqwest::Url;
 use std::{sync::Arc, time::Duration};
 use tokio::time;

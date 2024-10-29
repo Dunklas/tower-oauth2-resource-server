@@ -66,7 +66,7 @@ where
             .get(&header.alg)
             .ok_or(AuthError::UnsupportedAlgorithm(header.alg))?;
 
-        match decode::<Claims>(token, &decoding_key, &validation) {
+        match decode::<Claims>(token, decoding_key, validation) {
             Ok(result) => Ok(result.claims),
             Err(e) => Err(AuthError::ValidationFailed {
                 reason: e.into_kind(),

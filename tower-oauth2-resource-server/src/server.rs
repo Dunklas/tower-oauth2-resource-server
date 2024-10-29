@@ -25,6 +25,7 @@ use crate::oidc::OidcDiscovery;
 pub struct OAuth2ResourceServer<Claims = DefaultClaims> {
     jwt_validator: Arc<dyn JwtValidator<Claims> + Send + Sync>,
     jwt_extractor: Arc<dyn JwtExtractor + Send + Sync>,
+    #[allow(dead_code)]
     jwks_producer: Arc<dyn JwksProducer + Send + Sync>,
 }
 

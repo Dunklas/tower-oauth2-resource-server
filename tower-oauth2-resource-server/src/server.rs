@@ -128,7 +128,7 @@ async fn resolve_config(
             claims_spec = claims_spec.nbf(true);
         }
     }
-    Ok((oidc_config.jwks_url, claims_spec))
+    Ok((oidc_config.jwks_uri, claims_spec))
 }
 
 #[cfg(test)]
@@ -146,7 +146,7 @@ mod tests {
         ctx.expect()
             .returning(|_| {
                 Ok(OidcConfig {
-                    jwks_url: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
+                    jwks_uri: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
                     claims_supported: None,
                 })
             })

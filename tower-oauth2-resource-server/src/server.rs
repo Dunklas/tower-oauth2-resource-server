@@ -57,7 +57,7 @@ where
         let validator = Arc::new(OnlyJwtValidator::new(claims_validation_spec));
 
         let mut jwks_producer = TimerJwksProducer::new(jwks_url.clone(), jwk_set_refresh_interval);
-        jwks_producer.add_receiver(validator.clone());
+        jwks_producer.add_consumer(validator.clone());
         jwks_producer.start();
 
         Ok(OAuth2ResourceServer {

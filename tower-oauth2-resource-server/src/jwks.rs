@@ -8,7 +8,7 @@ use tokio::time;
 use crate::error::JwkError;
 
 pub trait JwksProducer {
-    fn add_receiver(&mut self, receiver: Arc<dyn JwksConsumer>);
+    fn add_consumer(&mut self, receiver: Arc<dyn JwksConsumer>);
     fn start(&self);
 }
 
@@ -34,8 +34,8 @@ impl TimerJwksProducer {
 }
 
 impl JwksProducer for TimerJwksProducer {
-    fn add_receiver(&mut self, receiver: Arc<dyn JwksConsumer>) {
-        self.receivers.push(receiver);
+    fn add_consumer(&mut self, consumer: Arc<dyn JwksConsumer>) {
+        self.receivers.push(consumer);
     }
 
     fn start(&self) {
@@ -50,15 +50,15 @@ impl JwksProducer for TimerJwksProducer {
 async fn fetch_jwks_job(
     jwks_url: Url,
     refresh_interval: Duration,
-    receivers: Vec<Arc<dyn JwksConsumer>>,
+    consumers: Vec<Arc<dyn JwksConsumer>>,
 ) {
     let mut interval = time::interval(refresh_interval);
     loop {
         interval.tick().await;
         match fetch_jwks(jwks_url.clone()).await {
             Ok(jwks) => {
-                for receiver in &receivers {
-                    receiver.receive_jwks(jwks.clone()).await;
+                for consumer in &consumers {
+                    consumer.receive_jwks(jwks.clone()).await;
                 }
             }
             Err(e) => {
@@ -77,4 +77,41 @@ async fn fetch_jwks(jwks_url: Url) -> Result<JwkSet, JwkError> {
         .await
         .map_err(|_| JwkError::ParseFailed)?;
     Ok(parsed)
+}
+
+#[cfg(test)]
+mod tests {
+    use base64::{alphabet, engine::{general_purpose, GeneralPurpose}, Engine};
+    use jsonwebtoken::jwk::{Jwk, JwkSet};
+    use rsa::{traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
+    use serde_json::json;
+    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+
+
+    #[tokio::test]
+    async fn test_should_notify_consumers() {
+        let mock_server = MockServer::start().await;
+        mock_jwks(&mock_server, "/jwks.json").await;
+    }
+
+    async fn mock_jwks(server: &MockServer, jwks_path: &str) {
+        let private = RsaPrivateKey::new(&mut rand::thread_rng(), 2048).unwrap();
+        let public = RsaPublicKey::from(private);
+        let base64_engine = GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
+        let jwk: Jwk = serde_json::from_value(json!({
+            "kty": "RSA",
+            "use_": "sig",
+            "alg": "RS256",
+            "kid": "test-kid",
+            "n": base64_engine.encode(public.n().to_bytes_be()),
+            "e": base64_engine.encode(public.e().to_bytes_be())
+        })).unwrap();
+        Mock::given(method("GET"))
+             .and(path(jwks_path))
+             .respond_with(ResponseTemplate::new(200).set_body_json(JwkSet {
+                keys: vec![jwk]
+             }))
+             .mount(server)
+             .await
+    }
 }

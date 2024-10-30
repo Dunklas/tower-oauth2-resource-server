@@ -6,5 +6,6 @@ pub mod validation;
 
 mod error;
 mod jwks;
-mod jwt;
+mod jwt_extract;
+mod jwt_validate;
 mod oidc;

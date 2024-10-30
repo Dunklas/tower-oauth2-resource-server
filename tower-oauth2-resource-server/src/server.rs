@@ -11,7 +11,8 @@ use crate::{
     claims::DefaultClaims,
     error::{AuthError, StartupError},
     jwks::{JwksProducer, TimerJwksProducer},
-    jwt::{BearerTokenJwtExtractor, JwtExtractor, JwtValidator, OnlyJwtValidator},
+    jwt_extract::{BearerTokenJwtExtractor, JwtExtractor},
+    jwt_validate::{JwtValidator, OnlyJwtValidator},
     layer::OAuth2ResourceServerLayer,
     validation::ClaimsValidationSpec,
 };
@@ -70,7 +71,13 @@ where
         &self,
         mut request: Request<Body>,
     ) -> Result<Request<Body>, AuthError> {
-        let token = self.jwt_extractor.extract_jwt(request.headers())?;
+        let token = match self.jwt_extractor.extract_jwt(request.headers()) {
+            Ok(token) => token,
+            Err(e) => {
+                debug!("JWT extraction failed: {}", e);
+                return Err(e);
+            }
+        };
         match self.jwt_validator.validate(&token).await {
             Ok(res) => {
                 debug!("JWT validation successful");
@@ -78,7 +85,7 @@ where
                 Ok(request)
             }
             Err(e) => {
-                debug!("JWT validation failed due to: {:?}", e);
+                debug!("JWT validation failed: {}", e);
                 Err(e)
             }
         }

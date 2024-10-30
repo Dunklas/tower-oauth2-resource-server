@@ -20,3 +20,44 @@ impl JwtExtractor for BearerTokenJwtExtractor {
             .to_owned())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use http::HeaderValue;
+
+    use super::*;
+
+    #[test]
+    fn test_missing_authorization() {
+        let headers = HeaderMap::new();
+        let result = BearerTokenJwtExtractor {}.extract_jwt(&headers);
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AuthError::MissingAuthorizationHeader);
+    }
+
+    #[test]
+    fn test_missing_bearer_prefix() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str("Boarer XXX").unwrap(),
+        );
+        let result = BearerTokenJwtExtractor {}.extract_jwt(&headers);
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), AuthError::InvalidAuthorizationHeader);
+    }
+
+    #[test]
+    fn test_ok() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            "Authorization",
+            HeaderValue::from_str("Bearer XXX").unwrap(),
+        );
+        let result = BearerTokenJwtExtractor {}.extract_jwt(&headers);
+
+        assert!(result.is_ok());
+    }
+}

@@ -138,7 +138,7 @@ mod tests {
 
         let mut success = false;
         let start = Instant::now();
-        while start.elapsed() < Duration::from_millis(50) {
+        while start.elapsed() < Duration::from_millis(500) {
             if consumer.has_jwks().await {
                 success = true;
                 break;

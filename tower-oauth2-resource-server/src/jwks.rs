@@ -81,17 +81,71 @@ async fn fetch_jwks(jwks_url: Url) -> Result<JwkSet, JwkError> {
 
 #[cfg(test)]
 mod tests {
-    use base64::{alphabet, engine::{general_purpose, GeneralPurpose}, Engine};
-    use jsonwebtoken::jwk::{Jwk, JwkSet};
+    use std::time::Instant;
+
+    use base64::{
+        alphabet,
+        engine::{general_purpose, GeneralPurpose},
+        Engine,
+    };
+    use jsonwebtoken::jwk::Jwk;
     use rsa::{traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
     use serde_json::json;
-    use wiremock::{matchers::{method, path}, Mock, MockServer, ResponseTemplate};
+    use tokio::sync::RwLock;
+    use wiremock::{
+        matchers::{method, path},
+        Mock, MockServer, ResponseTemplate,
+    };
 
+    use super::*;
+
+    struct TestConsumer {
+        jwks: Arc<RwLock<Option<JwkSet>>>,
+    }
+
+    impl TestConsumer {
+        pub fn new() -> Self {
+            Self {
+                jwks: Arc::new(RwLock::new(None)),
+            }
+        }
+        pub async fn has_jwks(&self) -> bool {
+            self.jwks.read().await.is_some()
+        }
+    }
+
+    #[async_trait]
+    impl JwksConsumer for TestConsumer {
+        async fn receive_jwks(&self, jwks: JwkSet) {
+            self.jwks.write().await.replace(jwks);
+        }
+    }
 
     #[tokio::test]
     async fn test_should_notify_consumers() {
         let mock_server = MockServer::start().await;
         mock_jwks(&mock_server, "/jwks.json").await;
+
+        let consumer = Arc::new(TestConsumer::new());
+        let mut producer = TimerJwksProducer::new(
+            format!("{}/jwks.json", &mock_server.uri())
+                .parse::<Url>()
+                .unwrap(),
+            Duration::from_millis(5),
+        );
+        producer.add_consumer(consumer.clone());
+        producer.start();
+
+        let mut success = false;
+        let start = Instant::now();
+        while start.elapsed() < Duration::from_millis(100) {
+            if consumer.has_jwks().await {
+                success = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(success, "Consumer did not receive JWKS in time");
     }
 
     async fn mock_jwks(server: &MockServer, jwks_path: &str) {
@@ -105,13 +159,12 @@ mod tests {
             "kid": "test-kid",
             "n": base64_engine.encode(public.n().to_bytes_be()),
             "e": base64_engine.encode(public.e().to_bytes_be())
-        })).unwrap();
+        }))
+        .unwrap();
         Mock::given(method("GET"))
-             .and(path(jwks_path))
-             .respond_with(ResponseTemplate::new(200).set_body_json(JwkSet {
-                keys: vec![jwk]
-             }))
-             .mount(server)
-             .await
+            .and(path(jwks_path))
+            .respond_with(ResponseTemplate::new(200).set_body_json(JwkSet { keys: vec![jwk] }))
+            .mount(server)
+            .await
     }
 }

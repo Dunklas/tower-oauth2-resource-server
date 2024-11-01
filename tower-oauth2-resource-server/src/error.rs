@@ -14,7 +14,6 @@ pub enum JwkError {
     FetchFailed,
     ParseFailed,
     MissingKeyId,
-    UnexpectedAlgorithm,
     DecodingFailed,
 }
 

@@ -6,7 +6,7 @@ use std::{
 use async_trait::async_trait;
 use jsonwebtoken::{
     decode, decode_header,
-    jwk::{AlgorithmParameters, Jwk, JwkSet, KeyAlgorithm},
+    jwk::{Jwk, JwkSet, KeyAlgorithm},
     Algorithm, DecodingKey, Validation,
 };
 use log::{info, warn};
@@ -128,14 +128,8 @@ impl OnlyJwtValidator {
     }
 
     fn parse_jwk(&self, jwk: &Jwk) -> Result<(String, DecodingKey), JwkError> {
-        // TODO: Use DecodingKey::from_jwk(...)
         let key_id = jwk.common.key_id.as_ref().ok_or(JwkError::MissingKeyId)?;
-        let decoding_key = match &jwk.algorithm {
-            AlgorithmParameters::RSA(rsa) => {
-                DecodingKey::from_rsa_components(&rsa.n, &rsa.e).or(Err(JwkError::DecodingFailed))
-            }
-            _ => Err(JwkError::UnexpectedAlgorithm),
-        }?;
+        let decoding_key = DecodingKey::from_jwk(jwk).map_err(|_| JwkError::DecodingFailed)?;
         Ok((key_id.clone(), decoding_key))
     }
 }

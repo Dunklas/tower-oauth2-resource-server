@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct ClaimsValidationSpec {
     pub iss: Option<String>,
     pub exp: bool,

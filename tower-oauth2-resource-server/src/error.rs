@@ -3,13 +3,20 @@ use std::{error::Error, fmt::Display};
 use http::{header::WWW_AUTHENTICATE, HeaderValue, Response, StatusCode};
 use jsonwebtoken::Algorithm;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum StartupError {
     InvalidParameter(String),
     OidcDiscoveryFailed(String),
 }
 
-#[derive(Debug, PartialEq)]
+impl Display for StartupError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+impl Error for StartupError {}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum JwkError {
     FetchFailed,
     ParseFailed,
@@ -17,7 +24,14 @@ pub enum JwkError {
     DecodingFailed,
 }
 
-#[derive(Debug, PartialEq)]
+impl Display for JwkError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+impl Error for JwkError {}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum AuthError {
     MissingAuthorizationHeader,
     InvalidAuthorizationHeader,
@@ -28,6 +42,13 @@ pub enum AuthError {
         reason: jsonwebtoken::errors::ErrorKind,
     },
 }
+
+impl Display for AuthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+impl Error for AuthError {}
 
 impl<B> From<AuthError> for Response<B>
 where
@@ -47,24 +68,3 @@ where
         response
     }
 }
-
-impl Display for StartupError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl Error for StartupError {}
-
-impl Display for JwkError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl Error for JwkError {}
-
-impl Display for AuthError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-impl Error for AuthError {}

@@ -1,15 +1,22 @@
-use serde::Deserialize;
+use std::fmt::Display;
+
+use serde::{Deserialize, Serialize};
 use serde_with::{formats::PreferMany, serde_as, OneOrMany};
 
 #[serde_as]
-#[derive(Clone, Debug, Deserialize)]
-#[allow(dead_code)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DefaultClaims {
     pub iss: Option<String>,
     pub sub: Option<String>,
     #[serde_as(as = "OneOrMany<_, PreferMany>")]
     pub aud: Vec<String>,
     pub jti: Option<String>,
+}
+
+impl Display for DefaultClaims {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[cfg(test)]

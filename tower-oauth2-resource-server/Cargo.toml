@@ -1,5 +1,11 @@
 [package]
 name = "tower-oauth2-resource-server"
+description = "Tower middleware that provides JWT authorization against an OpenID Connect (OIDC) Provider"
+keywords = ["jwt", "oidc", "oauth2", "authorizer"]
+license = "MIT"
+homepage = "https://github.com/Dunklas/tower-oauth2-resource-server"
+repository = "https://github.com/Dunklas/tower-oauth2-resource-server"
+readme = "../README.md"
 version = "0.1.0"
 edition = "2021"
 

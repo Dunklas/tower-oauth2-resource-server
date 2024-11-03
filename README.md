@@ -6,16 +6,17 @@ This is useful when an application has delegated authentication and/or authoriza
 Main inspiration for this middleware (both in naming and functionality) is [Spring Security OAuth 2.0 Resource Server](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/index.html).
 
 The middleware will attempt to process each request by:
- - Read JWT from `Authorization` header, with `Bearer` prefix
+ - Read JWT from `Authorization` header (with `Bearer` prefix)
  - Validate the JWT's signature against a public key obtained from `jwks_url`
  - Validate `iss`, `exp`, `aud` and possibly `nbf` scopes of the JWT
 
 If validation fails, a HTTP 401 is returned.
 Otherwise next service in the middleware chain will be called.
-Claims of the JWT is made available as a [Request extension](https://docs.rs/http/latest/http/struct.Extensions.html).
+Claims of the JWT are made available as a [Request extension](https://docs.rs/http/latest/http/struct.Extensions.html).
 This enables you to write further application logic based on the claims, e.g. rejecting request that lack a certain scope.
 
 ## Configuration
+### Issuer
 
 The `issuer_url` property is used to configure what authorization server to use.
 
@@ -33,22 +34,12 @@ This will prevent the self-configuration on start up.
 
 **Note** that it's still required to provide `issuer_url`, since it's used to validate the `iss` claim in JWTs.
 
+### Audiences
+
+### JWKS rotation
+
+### Claims validation
+
 ## Example usage
 
 Check the [examples](./examples/).
-
-To run one of them: `RUST_LOG=info cargo run -p <name-of-example>`
-
-**Note!** Since a running OIDC Provider is needed to use this middleware, a local instance of [Keycloak](https://www.keycloak.org/) is started in each example.
-It's seeded with a single user, *user@example.com* / *password*.
-
-Each example will log what port the OIDC provider runs on.
-
-To obtain a valid JWT for *user@example.com*, you can run:
-
-```text
-curl -X POST localhost:<PORT>/realms/tors/protocol/openid-connect/token \
-    -H "Content-Type: application/x-www-form-urlencoded" \
-    -d "grant_type=password&client_id=tors-example&username=user@example.com&password=password&scope=openid&client_secret=SGkkbV1nCLfKfr0Zxyig6isRgT1RdK2q" \
-    | jq '.access_token'
-```

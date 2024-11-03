@@ -37,6 +37,10 @@ This will prevent the self-configuration on start up.
 ### Audiences
 
 ### JWKS rotation
+The middleware will periodically call the `jwks_url` of the authorization server in order to update the public keys that JWT signatures will be validated against.
+By default this is done once a minute.
+
+You can change this interval by setting the `jwks_refresh_interval` property.
 
 ### Claims validation
 

@@ -4,6 +4,11 @@ use serde::de::DeserializeOwned;
 
 use crate::{error::StartupError, server::OAuth2ResourceServer, validation::ClaimsValidationSpec};
 
+/// An OAuth2ResourceServer builder
+///
+/// Can be used to construct a OAuth2ResourceServer
+/// through a builder-like pattern.
+#[derive(Debug)]
 pub struct OAuth2ResourceServerBuilder<Claims>
 where
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
@@ -11,9 +16,33 @@ where
     issuer_url: Option<String>,
     jwks_url: Option<String>,
     audiences: Vec<String>,
-    jwk_set_refresh_interval: Duration,
+    jwks_refresh_interval: Duration,
     claims_validation_spec: Option<ClaimsValidationSpec>,
     phantom: PhantomData<Claims>,
+}
+
+impl<Claims> OAuth2ResourceServer<Claims>
+where
+    Claims: Clone + DeserializeOwned + Send + Sync + 'static,
+{
+    /// Create a new builder to construct an OAuth2ResourceServer
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use tower_oauth2_resource_server::{claims::DefaultClaims, server::OAuth2ResourceServer};
+    ///
+    /// let oauth2_resource_server = <OAuth2ResourceServer>::builder()
+    ///     .issuer_url("https://some-auth-server.com")
+    ///     .audiences("https://some-resource-server.com")
+    ///     .build()
+    ///     .await
+    ///     .expect("Failed to build OAuth2ResourceServer")
+    ///
+    /// ```
+    pub fn builder() -> OAuth2ResourceServerBuilder<Claims> {
+        OAuth2ResourceServerBuilder::new()
+    }
 }
 
 impl<Claims> OAuth2ResourceServerBuilder<Claims>
@@ -25,7 +54,7 @@ where
             issuer_url: None,
             jwks_url: None,
             audiences: Vec::new(),
-            jwk_set_refresh_interval: Duration::from_secs(60),
+            jwks_refresh_interval: Duration::from_secs(60),
             claims_validation_spec: None,
             phantom: PhantomData,
         }
@@ -46,8 +75,8 @@ where
         self
     }
 
-    pub fn jwk_set_refresh_interval(mut self, jwk_set_refresh_interval: Duration) -> Self {
-        self.jwk_set_refresh_interval = jwk_set_refresh_interval;
+    pub fn jwks_refresh_interval(mut self, jwk_set_refresh_interval: Duration) -> Self {
+        self.jwks_refresh_interval = jwk_set_refresh_interval;
         self
     }
 
@@ -59,7 +88,7 @@ where
             &issuer_url,
             self.jwks_url,
             self.audiences.clone(),
-            self.jwk_set_refresh_interval,
+            self.jwks_refresh_interval,
             self.claims_validation_spec,
         )
         .await

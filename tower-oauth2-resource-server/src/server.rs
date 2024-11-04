@@ -7,7 +7,6 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::{
-    builder::OAuth2ResourceServerBuilder,
     claims::DefaultClaims,
     error::{AuthError, StartupError},
     jwks::{JwksProducer, TimerJwksProducer},
@@ -22,6 +21,10 @@ use mockall_double::double;
 #[double]
 use crate::oidc::OidcDiscovery;
 
+/// OAuth2ResourceServer
+///
+/// This is the actual middleware.
+/// May be turned into a tower layer by calling into_layer().
 #[derive(Clone)]
 pub struct OAuth2ResourceServer<Claims = DefaultClaims> {
     jwt_validator: Arc<dyn JwtValidator<Claims> + Send + Sync>,
@@ -34,10 +37,6 @@ impl<Claims> OAuth2ResourceServer<Claims>
 where
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
 {
-    pub fn builder() -> OAuth2ResourceServerBuilder<Claims> {
-        OAuth2ResourceServerBuilder::new()
-    }
-
     pub(crate) async fn new(
         issuer_url: &str,
         jwks_url: Option<String>,

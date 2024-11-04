@@ -34,6 +34,7 @@ rand = "0.8.5"
 rsa = "0.9.6"
 serde_json = "1.0.117"
 tower = { workspace = true, features = ["util"] }
+tokio = { workspace = true, features = ["rt-multi-thread"]}
 wiremock = "0.6.0"
 
 [features]

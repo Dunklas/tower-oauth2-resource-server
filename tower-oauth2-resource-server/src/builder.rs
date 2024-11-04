@@ -30,15 +30,16 @@ where
     /// # Examples
     ///
     /// ```
-    /// use tower_oauth2_resource_server::{claims::DefaultClaims, server::OAuth2ResourceServer};
+    /// use tower_oauth2_resource_server::server::OAuth2ResourceServer;
     ///
-    /// let oauth2_resource_server = <OAuth2ResourceServer>::builder()
-    ///     .issuer_url("https://some-auth-server.com")
-    ///     .audiences("https://some-resource-server.com")
-    ///     .build()
-    ///     .await
-    ///     .expect("Failed to build OAuth2ResourceServer")
-    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
+    ///         .issuer_url("https://some-auth-server.com")
+    ///         .audiences(&["https://some-resource-server.com"])
+    ///         .build()
+    ///         .await;
+    /// }
     /// ```
     pub fn builder() -> OAuth2ResourceServerBuilder<Claims> {
         OAuth2ResourceServerBuilder::new()

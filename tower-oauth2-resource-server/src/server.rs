@@ -104,7 +104,7 @@ impl<Claims> OAuth2ResourceServer<Claims>
 where
     Claims: Clone + DeserializeOwned,
 {
-    /// Transforms self into a [tower layer](https://docs.rs/tower/latest/tower/trait.Layer.html).
+    /// Returns a [tower layer](https://docs.rs/tower/latest/tower/trait.Layer.html).
     pub fn into_layer(&self) -> OAuth2ResourceServerLayer<Claims> {
         OAuth2ResourceServerLayer::new(self.clone())
     }

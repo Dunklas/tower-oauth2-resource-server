@@ -3,12 +3,6 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::PreferMany, serde_as, OneOrMany};
 
-/// Default claims implementation
-///
-/// Will be used by default when constructing a [OAuth2ResourceServer](crate::server::OAuth2ResourceServer).
-/// If you need other ones, an own struct can be provided
-/// as generic parameter.
-///
 #[serde_as]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DefaultClaims {

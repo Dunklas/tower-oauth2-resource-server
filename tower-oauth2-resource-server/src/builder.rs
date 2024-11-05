@@ -4,9 +4,6 @@ use serde::de::DeserializeOwned;
 
 use crate::{error::StartupError, server::OAuth2ResourceServer, validation::ClaimsValidationSpec};
 
-/// An OAuth2ResourceServer builder
-///
-/// Used to construct a OAuth2ResourceServer through a builder-like pattern.
 #[derive(Debug)]
 pub struct OAuth2ResourceServerBuilder<Claims>
 where
@@ -24,43 +21,6 @@ impl<Claims> OAuth2ResourceServer<Claims>
 where
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
 {
-    /// Create a new builder to construct an OAuth2ResourceServer.
-    ///
-    /// # Example using [DefaultClaims](crate::claims::DefaultClaims)
-    ///
-    /// ```
-    /// use tower_oauth2_resource_server::server::OAuth2ResourceServer;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
-    ///         .issuer_url("https://some-auth-server.com")
-    ///         .audiences(&["https://some-resource-server.com"])
-    ///         .build()
-    ///         .await;
-    /// }
-    /// ```
-    ///
-    /// # Example using custom claims implementation
-    ///
-    /// ```
-    /// use serde::{Deserialize, Serialize};
-    /// use tower_oauth2_resource_server::server::OAuth2ResourceServer;
-    ///
-    /// #[derive(Clone, Debug, Deserialize, Serialize)]
-    /// struct MyClaims {
-    ///     pub iss: String,
-    ///     pub scp: Vec<String>
-    /// }
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let oauth2_resource_server = OAuth2ResourceServer::<MyClaims>::builder()
-    ///         .issuer_url("https://some-auth-server.com")
-    ///         .audiences(&["https://some-resource-server.com"])
-    ///         .build()
-    ///         .await;
-    /// }
-    /// ```
     pub fn builder() -> OAuth2ResourceServerBuilder<Claims> {
         OAuth2ResourceServerBuilder::new()
     }

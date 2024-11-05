@@ -24,7 +24,7 @@ use crate::oidc::OidcDiscovery;
 /// OAuth2ResourceServer
 ///
 /// This is the actual middleware.
-/// May be turned into a tower layer by calling into_layer().
+/// May be turned into a tower layer by calling [into_layer](OAuth2ResourceServer::into_layer).
 #[derive(Clone)]
 pub struct OAuth2ResourceServer<Claims = DefaultClaims> {
     jwt_validator: Arc<dyn JwtValidator<Claims> + Send + Sync>,
@@ -104,6 +104,7 @@ impl<Claims> OAuth2ResourceServer<Claims>
 where
     Claims: Clone + DeserializeOwned,
 {
+    /// Transforms self into a [tower layer](https://docs.rs/tower/latest/tower/trait.Layer.html).
     pub fn into_layer(&self) -> OAuth2ResourceServerLayer<Claims> {
         OAuth2ResourceServerLayer::new(self.clone())
     }

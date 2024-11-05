@@ -17,8 +17,8 @@ This enables you to write further application logic based on the claims, e.g. re
 
 ## Configuration
 
-See [builder documentation](INSERT LINK).
+See docs for [OAuth2ResourceServerBuilder](https://insert-docs-url).
 
 ## Example usage
 
-Check the [examples](./examples/).
+Check the [examples](https://github.com/Dunklas/tower-oauth2-resource-server/tree/main/examples).

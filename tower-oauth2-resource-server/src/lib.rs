@@ -1,4 +1,4 @@
-#![doc = include_str!("../../README.md")]
+#![doc = include_str!("../README.md")]
 
 /// Builder used to construct an [OAuth2ResourceServer](crate::server::OAuth2ResourceServer) instance.
 ///

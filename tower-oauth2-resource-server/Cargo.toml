@@ -8,6 +8,7 @@ repository = "https://github.com/Dunklas/tower-oauth2-resource-server"
 readme = "README.md"
 version = "0.1.0"
 edition = "2021"
+exclude = ["tests"]
 
 [dependencies]
 async-trait = "0.1.83"

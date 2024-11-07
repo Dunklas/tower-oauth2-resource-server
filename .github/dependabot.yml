@@ -3,10 +3,6 @@ updates:
   - package-ecosystem: "cargo"
     directories:
       - "/"
-      - "/tower-oauth2-resource-server"
-      - "/examples/axum-example"
-      - "/examples/salvo-example"
-      - "/examples/tonic-example"
     schedule:
       interval: "weekly"
   - package-ecosystem: "github-actions"

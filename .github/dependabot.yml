@@ -5,6 +5,11 @@ updates:
       - "/"
     schedule:
       interval: "weekly"
+    groups:
+      minor/patch:
+        update-types:
+          - "patch"
+          - "minor"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

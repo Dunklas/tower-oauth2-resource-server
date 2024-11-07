@@ -2,8 +2,8 @@
 members = [
     "tower-oauth2-resource-server",
     "examples-util",
-    "examples/axum-example"
-    "examples/salvo-example"
+    "examples/axum-example",
+    "examples/salvo-example",
     "examples/tonic-example"
 ]
 default-members = ["tower-oauth2-resource-server"]

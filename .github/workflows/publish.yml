@@ -16,3 +16,6 @@ jobs:
             --locked \
             --package tower-oauth2-resource-server \
             --token ${{ secrets.CRATES_IO_TOKEN }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

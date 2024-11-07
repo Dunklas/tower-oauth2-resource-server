@@ -1,0 +1,18 @@
+name: publish
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish to crates.io
+        run: |
+          cargo publish \
+            --locked \
+            --package tower-oauth2-resource-server \
+            --token ${{ secrets.CRATES_IO_TOKEN }}

@@ -17,7 +17,7 @@ This enables you to write further application logic based on the claims, e.g. re
 
 ## Configuration
 
-See docs for [OAuth2ResourceServerBuilder](https://insert-docs-url).
+See docs for [OAuth2ResourceServerBuilder](https://docs.rs/tower-oauth2-resource-server/latest/tower_oauth2_resource_server/builder/struct.OAuth2ResourceServerBuilder.html).
 
 ## Example usage
 

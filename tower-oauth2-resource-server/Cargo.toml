@@ -19,7 +19,7 @@ log = { workspace = true }
 mockall_double = "0.3.1"
 pin-project = "1.1.7"
 reqwest = { version = "0.12.9", default-features = false, features = ["json"] }
-serde = "1.0.214"
+serde = "1.0.215"
 serde_with = "3.9.0"
 tokio = { workspace = true, features = ["rt", "sync", "time"] }
 tower = { workspace = true }
@@ -30,10 +30,10 @@ base64 = "0.22.1"
 http-body-util = "0.1.2"
 bytes = "1.8.0"
 lazy_static = "1.4.0"
-mockall = "0.13.0"
+mockall = "0.13.1"
 rand = "0.8.5"
 rsa = "0.9.6"
-serde_json = "1.0.117"
+serde_json = "1.0.133"
 tower = { workspace = true, features = ["util"] }
 tokio = { workspace = true, features = ["rt-multi-thread"]}
 wiremock = "0.6.0"

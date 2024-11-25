@@ -23,7 +23,7 @@ serde = "1.0.215"
 serde_with = "3.9.0"
 tokio = { workspace = true, features = ["rt", "sync", "time"] }
 tower = { workspace = true }
-url = { version = "2.5.3", features = ["serde"] }
+url = { version = "2.5.4", features = ["serde"] }
 
 [dev-dependencies]
 base64 = "0.22.1"

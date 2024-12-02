@@ -28,11 +28,11 @@ url = { version = "2.5.4", features = ["serde"] }
 [dev-dependencies]
 base64 = "0.22.1"
 http-body-util = "0.1.2"
-bytes = "1.8.0"
+bytes = "1.9.0"
 lazy_static = "1.4.0"
 mockall = "0.13.1"
 rand = "0.8.5"
-rsa = "0.9.6"
+rsa = "0.9.7"
 serde_json = "1.0.133"
 tower = { workspace = true, features = ["util"] }
 tokio = { workspace = true, features = ["rt-multi-thread"]}

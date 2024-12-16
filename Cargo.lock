@@ -212,9 +212,9 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_urlencoded",
- "sync_wrapper 1.0.1",
+ "sync_wrapper",
  "tokio",
- "tower 0.5.1",
+ "tower 0.5.2",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -235,7 +235,7 @@ dependencies = [
  "mime",
  "pin-project-lite",
  "rustversion",
- "sync_wrapper 1.0.1",
+ "sync_wrapper",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -250,7 +250,7 @@ dependencies = [
  "examples-util",
  "log",
  "tokio",
- "tower 0.5.1",
+ "tower 0.5.2",
  "tower-oauth2-resource-server",
 ]
 
@@ -2194,7 +2194,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_urlencoded",
- "sync_wrapper 1.0.1",
+ "sync_wrapper",
  "system-configuration",
  "tokio",
  "tokio-native-tls",
@@ -2351,9 +2351,9 @@ checksum = "f3cb5ba0dc43242ce17de99c180e96db90b235b8a9fdc9543c96d2209116bd9f"
 
 [[package]]
 name = "salvo"
-version = "0.74.2"
+version = "0.74.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a941a79d92a35187603ddb3ee6010649e687341a943666224642bf9c1c6b4f8"
+checksum = "bf71b51a4d651ddf3d660db7ae483baab3f1bd81f1f82f177731bf43f6052c34"
 dependencies = [
  "salvo-jwt-auth",
  "salvo-proxy",
@@ -2370,15 +2370,15 @@ dependencies = [
  "log",
  "salvo",
  "tokio",
- "tower 0.5.1",
+ "tower 0.5.2",
  "tower-oauth2-resource-server",
 ]
 
 [[package]]
 name = "salvo-jwt-auth"
-version = "0.74.2"
+version = "0.74.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87d17e823655224cb1fa59928e631a6f153f5d87497cc1d1ca07918c002f63e2"
+checksum = "aebdaec653623bf940983c46bd1464569ba9408e0d1a6552feae8f7be7667e85"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2396,9 +2396,9 @@ dependencies = [
 
 [[package]]
 name = "salvo-proxy"
-version = "0.74.2"
+version = "0.74.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "025ed967e89f62b5fb20dd34a9ab1b7e0df68dcb3d922ffabda99f72f44313ed"
+checksum = "ef1f0487e3987c47c2e26d71a9ec696282f0c79203b22f4b9d50afc33273df5f"
 dependencies = [
  "fastrand",
  "futures-util",
@@ -2414,9 +2414,9 @@ dependencies = [
 
 [[package]]
 name = "salvo-serde-util"
-version = "0.74.2"
+version = "0.74.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae638180791338bc88727e5201fa8dc791d7eb9a446f0810ad8d0b5c8d65db2e"
+checksum = "6eb65193f58d9a936a0406625bca806f55886a57f502b3d11adc141618504063"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2425,9 +2425,9 @@ dependencies = [
 
 [[package]]
 name = "salvo_core"
-version = "0.74.2"
+version = "0.74.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eaaaa9d122697bb95575402351485b8651c553b91ff8096197811b367a234ba6"
+checksum = "447c7ab93300c57c76c95412cc469ef07943c698ef022dc08f743f92c05847a8"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2459,7 +2459,7 @@ dependencies = [
  "serde",
  "serde-xml-rs",
  "serde_json",
- "sync_wrapper 1.0.1",
+ "sync_wrapper",
  "tempfile",
  "thiserror 2.0.3",
  "tokio",
@@ -2470,9 +2470,9 @@ dependencies = [
 
 [[package]]
 name = "salvo_extra"
-version = "0.74.2"
+version = "0.74.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da436bf45088d7e77629233905fbac3ff790fbe700eef676a883977219dc97bd"
+checksum = "647f414b9f7cefc341b3c445b65d1226f375e51e469199cfd8caf4996e681610"
 dependencies = [
  "base64 0.22.1",
  "etag",
@@ -2485,16 +2485,16 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-tungstenite",
- "tower 0.5.1",
+ "tower 0.5.2",
  "tracing",
  "ulid",
 ]
 
 [[package]]
 name = "salvo_macros"
-version = "0.74.2"
+version = "0.74.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddf066ba183548285f7dc8db26a35767e94ac2fc95f397913c98d5b63b45bed4"
+checksum = "ed9373fc8c688757223687cbb5aa0cf30711a34cbfec52243b5ca5d241c3e693"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -2544,9 +2544,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.215"
+version = "1.0.216"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6513c1ad0b11a9376da888e3e0baa0077f1aed55c17f50e7b2397136129fb88f"
+checksum = "0b9781016e935a97e8beecf0c933758c97a5520d32930e460142b4cd80c6338e"
 dependencies = [
  "serde_derive",
 ]
@@ -2565,9 +2565,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.215"
+version = "1.0.216"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad1e866f866923f252f05c889987993144fb74e722403468a4ebd70c3cd756c0"
+checksum = "46f859dbbf73865c6627ed570e78961cd3ac92407a2d117204c49232485da55e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2806,12 +2806,6 @@ dependencies = [
  "quote",
  "unicode-ident",
 ]
-
-[[package]]
-name = "sync_wrapper"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2047c6ded9c721764247e62cd3b03c09ffc529b2ba5b10ec482ae507a4a70160"
 
 [[package]]
 name = "sync_wrapper"
@@ -3170,7 +3164,7 @@ dependencies = [
  "tokio",
  "tonic",
  "tonic-build",
- "tower 0.5.1",
+ "tower 0.5.2",
  "tower-oauth2-resource-server",
 ]
 
@@ -3196,14 +3190,14 @@ dependencies = [
 
 [[package]]
 name = "tower"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2873938d487c3cfb9aed7546dc9f2711d867c9f90c46b889989a2cb84eba6b4f"
+checksum = "d039ad9159c98b70ecfd540b2573b97f7f52c3e8d9f8ad57a24b916a536975f9"
 dependencies = [
  "futures-core",
  "futures-util",
  "pin-project-lite",
- "sync_wrapper 0.1.2",
+ "sync_wrapper",
  "tokio",
  "tokio-util",
  "tower-layer",
@@ -3240,7 +3234,7 @@ dependencies = [
  "serde_json",
  "serde_with",
  "tokio",
- "tower 0.5.1",
+ "tower 0.5.2",
  "url",
  "wiremock",
 ]

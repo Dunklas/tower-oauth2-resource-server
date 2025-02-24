@@ -3,4 +3,4 @@ name = "examples-util"
 edition = "2021"
 
 [dependencies]
-testcontainers = "0.23.2"
+testcontainers = "0.23.3"

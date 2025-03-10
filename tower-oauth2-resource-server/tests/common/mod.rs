@@ -1,15 +1,14 @@
 use base64::{
-    alphabet,
+    Engine, alphabet,
     engine::{self, general_purpose},
-    Engine,
 };
-use jsonwebtoken::{encode, EncodingKey, Header};
-use rsa::{pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
+use jsonwebtoken::{EncodingKey, Header, encode};
+use rsa::{RsaPrivateKey, RsaPublicKey, pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts};
 use serde::Serialize;
 use serde_json::Value;
 use wiremock::{
-    matchers::{method, path},
     Mock, MockServer, ResponseTemplate,
+    matchers::{method, path},
 };
 
 #[derive(Serialize)]

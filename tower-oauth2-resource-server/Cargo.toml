@@ -7,7 +7,9 @@ homepage = "https://github.com/Dunklas/tower-oauth2-resource-server"
 repository = "https://github.com/Dunklas/tower-oauth2-resource-server"
 readme = "README.md"
 version = "0.1.11"
-edition = "2021"
+
+edition = "2024"
+rust-version = "1.85.0"
 exclude = ["tests"]
 
 [dependencies]

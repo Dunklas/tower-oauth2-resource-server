@@ -5,9 +5,8 @@ use std::{
 
 use async_trait::async_trait;
 use jsonwebtoken::{
-    decode, decode_header,
+    Algorithm, DecodingKey, Validation, decode, decode_header,
     jwk::{Jwk, JwkSet, KeyAlgorithm},
-    Algorithm, DecodingKey, Validation,
 };
 use log::{info, warn};
 use serde::de::DeserializeOwned;
@@ -155,20 +154,18 @@ fn parse_key_alg(key_alg: KeyAlgorithm) -> Option<Algorithm> {
 #[cfg(test)]
 mod tests {
     use base64::{
-        alphabet,
+        Engine, alphabet,
         engine::{self, general_purpose},
-        Engine,
     };
     use jsonwebtoken::{
-        encode,
+        EncodingKey, Header, encode,
         errors::ErrorKind,
         jwk::{Jwk, JwkSet},
-        EncodingKey, Header,
     };
     use lazy_static::lazy_static;
-    use rsa::{pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
+    use rsa::{RsaPrivateKey, RsaPublicKey, pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts};
     use serde::Deserialize;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use crate::{error::AuthError, jwks::JwksConsumer, validation::ClaimsValidationSpec};

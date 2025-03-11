@@ -93,16 +93,10 @@ mod tests {
             .map(|p| p.to_string())
             .collect::<HashSet<_>>();
         assert_eq!(paths.len(), 3);
-        assert!(
-            paths.contains(
-                "https://authorization-server.com/issuer/.well-known/openid-configuration"
-            )
-        );
-        assert!(
-            paths.contains(
-                "https://authorization-server.com/.well-known/openid-configuration/issuer"
-            )
-        );
+        assert!(paths
+            .contains("https://authorization-server.com/issuer/.well-known/openid-configuration"));
+        assert!(paths
+            .contains("https://authorization-server.com/.well-known/openid-configuration/issuer"));
         assert!(paths.contains(
             "https://authorization-server.com/.well-known/oauth-authorization-server/issuer"
         ));
@@ -121,16 +115,10 @@ mod tests {
             .map(|p| p.to_string())
             .collect::<HashSet<_>>();
 
-        assert!(
-            paths.contains(
-                "https://authorization-server.com/issuer/.well-known/openid-configuration"
-            )
-        );
-        assert!(
-            paths.contains(
-                "https://authorization-server.com/.well-known/openid-configuration/issuer"
-            )
-        );
+        assert!(paths
+            .contains("https://authorization-server.com/issuer/.well-known/openid-configuration"));
+        assert!(paths
+            .contains("https://authorization-server.com/.well-known/openid-configuration/issuer"));
         assert!(paths.contains(
             "https://authorization-server.com/.well-known/oauth-authorization-server/issuer"
         ));
@@ -146,14 +134,9 @@ mod tests {
             .collect::<HashSet<_>>();
 
         assert_eq!(paths.len(), 2);
-        assert!(
-            paths.contains("https://authorization-server.com/.well-known/openid-configuration")
-        );
-        assert!(
-            paths.contains(
-                "https://authorization-server.com/.well-known/oauth-authorization-server"
-            )
-        );
+        assert!(paths.contains("https://authorization-server.com/.well-known/openid-configuration"));
+        assert!(paths
+            .contains("https://authorization-server.com/.well-known/oauth-authorization-server"));
     }
 
     #[test]
@@ -166,13 +149,8 @@ mod tests {
             .collect::<HashSet<_>>();
 
         assert_eq!(paths.len(), 2);
-        assert!(
-            paths.contains("https://authorization-server.com/.well-known/openid-configuration")
-        );
-        assert!(
-            paths.contains(
-                "https://authorization-server.com/.well-known/oauth-authorization-server"
-            )
-        );
+        assert!(paths.contains("https://authorization-server.com/.well-known/openid-configuration"));
+        assert!(paths
+            .contains("https://authorization-server.com/.well-known/oauth-authorization-server"));
     }
 }

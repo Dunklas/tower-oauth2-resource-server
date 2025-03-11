@@ -84,16 +84,17 @@ mod tests {
     use std::time::Instant;
 
     use base64::{
-        Engine, alphabet,
-        engine::{GeneralPurpose, general_purpose},
+        alphabet,
+        engine::{general_purpose, GeneralPurpose},
+        Engine,
     };
     use jsonwebtoken::jwk::Jwk;
-    use rsa::{RsaPrivateKey, RsaPublicKey, traits::PublicKeyParts};
+    use rsa::{traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
     use serde_json::json;
     use tokio::sync::RwLock;
     use wiremock::{
-        Mock, MockServer, ResponseTemplate,
         matchers::{method, path},
+        Mock, MockServer, ResponseTemplate,
     };
 
     use super::*;

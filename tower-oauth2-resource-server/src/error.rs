@@ -1,6 +1,6 @@
 use std::{error::Error, fmt::Display};
 
-use http::{HeaderValue, Response, StatusCode, header::WWW_AUTHENTICATE};
+use http::{header::WWW_AUTHENTICATE, HeaderValue, Response, StatusCode};
 use jsonwebtoken::Algorithm;
 
 #[derive(Clone, Debug, PartialEq)]

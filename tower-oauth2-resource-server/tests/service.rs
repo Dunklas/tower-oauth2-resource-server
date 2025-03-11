@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bytes::Bytes;
 use common::{jwt_from, mock_jwks, mock_oidc_config, rsa_key_pair};
-use http::{HeaderName, Request, Response, StatusCode, header::AUTHORIZATION};
+use http::{header::AUTHORIZATION, HeaderName, Request, Response, StatusCode};
 use http_body_util::Full;
 use tokio::time::sleep;
 use tower::{BoxError, Service, ServiceBuilder, ServiceExt};

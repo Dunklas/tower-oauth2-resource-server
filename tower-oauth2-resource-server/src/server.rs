@@ -7,11 +7,12 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::{
+    authorizer::authorizer::Authorizer,
     claims::DefaultClaims,
     error::{AuthError, StartupError},
     jwks::{JwksProducer, TimerJwksProducer},
     jwt_extract::{BearerTokenJwtExtractor, JwtExtractor},
-    jwt_validate::{JwtValidator, OnlyJwtValidator},
+    jwt_validate::OnlyJwtValidator,
     layer::OAuth2ResourceServerLayer,
     tenant::TenantConfiguration,
     validation::ClaimsValidationSpec,
@@ -28,10 +29,8 @@ use crate::oidc::OidcDiscovery;
 /// May be turned into a tower layer by calling [into_layer](OAuth2ResourceServer::into_layer).
 #[derive(Clone)]
 pub struct OAuth2ResourceServer<Claims = DefaultClaims> {
-    jwt_validator: Arc<dyn JwtValidator<Claims> + Send + Sync>,
+    authorizers: Vec<Authorizer<Claims>>,
     jwt_extractor: Arc<dyn JwtExtractor + Send + Sync>,
-    #[allow(dead_code)]
-    jwks_producer: Arc<dyn JwksProducer + Send + Sync>,
 }
 
 impl<Claims> OAuth2ResourceServer<Claims>
@@ -59,10 +58,11 @@ where
         jwks_producer.add_consumer(validator.clone());
         jwks_producer.start();
 
+        let authorizer = Authorizer::new(validator, Arc::new(jwks_producer));
+
         Ok(OAuth2ResourceServer {
-            jwt_validator: validator,
             jwt_extractor: Arc::new(BearerTokenJwtExtractor {}),
-            jwks_producer: Arc::new(jwks_producer),
+            authorizers: vec![authorizer],
         })
     }
 
@@ -77,7 +77,8 @@ where
                 return Err(e);
             }
         };
-        match self.jwt_validator.validate(&token).await {
+        let validator = self.authorizers.first().unwrap();
+        match validator.jwt_validator.validate(&token).await {
             Ok(res) => {
                 debug!("JWT validation successful");
                 request.extensions_mut().insert(res);

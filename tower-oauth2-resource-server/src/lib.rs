@@ -84,6 +84,7 @@ pub mod validation;
 /// TODO: documentation
 pub mod tenant;
 
+mod authorizer;
 mod error;
 mod jwks;
 mod jwt_extract;

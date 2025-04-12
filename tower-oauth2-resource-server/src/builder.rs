@@ -1,11 +1,8 @@
-use std::{marker::PhantomData, time::Duration};
+use std::marker::PhantomData;
 
 use serde::de::DeserializeOwned;
 
-use crate::{
-    error::StartupError, server::OAuth2ResourceServer, tenant::TenantConfiguration,
-    validation::ClaimsValidationSpec,
-};
+use crate::{error::StartupError, server::OAuth2ResourceServer, tenant::TenantConfiguration};
 
 #[derive(Debug)]
 pub struct OAuth2ResourceServerBuilder<Claims>
@@ -48,20 +45,7 @@ where
     /// Thus, the operation can fail and therefore returns a Result.
     pub async fn build(self) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
         assert!(self.tenant_configurations.len() > 0);
-        let config = self.tenant_configurations.first().unwrap();
-        let issuer_url = config.issuer_url.as_ref().unwrap().clone();
-        let jwks_refresh = config
-            .jwks_refresh_interval
-            .or_else(|| Some(Duration::from_secs(60)))
-            .unwrap();
-        OAuth2ResourceServer::new(
-            &issuer_url,
-            config.jwks_url.clone(),
-            config.audiences.clone(),
-            jwks_refresh,
-            config.claims_validation_spec.clone(),
-        )
-        .await
+        OAuth2ResourceServer::new(self.tenant_configurations).await
     }
 }
 

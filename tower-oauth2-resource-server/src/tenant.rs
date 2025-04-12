@@ -8,7 +8,7 @@ pub struct TenantConfiguration {
     pub issuer_url: Option<String>,
     pub jwks_url: Option<String>,
     pub audiences: Vec<String>,
-    pub jwks_refresh_interval: Option<Duration>,
+    pub jwks_refresh_interval: Duration,
     pub claims_validation_spec: Option<ClaimsValidationSpec>,
 }
 
@@ -122,7 +122,9 @@ impl TenantConfigurationBuilder {
             issuer_url: self.issuer_url,
             jwks_url: self.jwks_url,
             audiences: self.audiences,
-            jwks_refresh_interval: self.jwk_set_refresh_interval,
+            jwks_refresh_interval: self
+                .jwk_set_refresh_interval
+                .unwrap_or(Duration::from_secs(60)),
             claims_validation_spec: self.claims_validation_spec,
         })
     }

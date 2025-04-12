@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use http::Request;
 use log::{debug, info};
@@ -13,6 +13,7 @@ use crate::{
     jwt_extract::{BearerTokenJwtExtractor, JwtExtractor},
     jwt_validate::{JwtValidator, OnlyJwtValidator},
     layer::OAuth2ResourceServerLayer,
+    tenant::TenantConfiguration,
     validation::ClaimsValidationSpec,
 };
 
@@ -38,16 +39,14 @@ where
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
 {
     pub(crate) async fn new(
-        issuer_url: &str,
-        jwks_url: Option<String>,
-        audiences: Vec<String>,
-        jwk_set_refresh_interval: Duration,
-        custom_claims_validation_spec: Option<ClaimsValidationSpec>,
+        tenant_configurations: Vec<TenantConfiguration>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
+        let config = tenant_configurations.into_iter().next().unwrap();
         let (jwks_url, claims_validation_spec) =
-            resolve_config(issuer_url, jwks_url, audiences).await?;
-        let claims_validation_spec =
-            custom_claims_validation_spec.unwrap_or(claims_validation_spec);
+            resolve_config(config.issuer_url, config.jwks_url, config.audiences).await?;
+        let claims_validation_spec = config
+            .claims_validation_spec
+            .unwrap_or(claims_validation_spec);
         info!(
             "Will validate the following claims: {}",
             claims_validation_spec
@@ -55,7 +54,8 @@ where
 
         let validator = Arc::new(OnlyJwtValidator::new(claims_validation_spec));
 
-        let mut jwks_producer = TimerJwksProducer::new(jwks_url.clone(), jwk_set_refresh_interval);
+        let mut jwks_producer =
+            TimerJwksProducer::new(jwks_url.clone(), config.jwks_refresh_interval);
         jwks_producer.add_consumer(validator.clone());
         jwks_producer.start();
 
@@ -111,14 +111,14 @@ where
 }
 
 async fn resolve_config(
-    issuer_url: &str,
+    issuer_url: Option<String>,
     jwks_url: Option<String>,
     audiences: Vec<String>,
 ) -> Result<(Url, ClaimsValidationSpec), StartupError> {
-    let mut claims_spec = ClaimsValidationSpec::new()
-        .iss(issuer_url)
-        .aud(audiences)
-        .exp(true);
+    let mut claims_spec = ClaimsValidationSpec::new().aud(audiences).exp(true);
+    if let Some(issuer_uri) = &issuer_url {
+        claims_spec = claims_spec.iss(issuer_uri);
+    }
 
     if let Some(jwks_url) = jwks_url {
         let jwks_url = jwks_url.parse::<Url>().map_err(|_| {
@@ -126,7 +126,9 @@ async fn resolve_config(
         })?;
         return Ok((jwks_url, claims_spec));
     }
-
+    let issuer_url = issuer_url.ok_or(StartupError::InvalidParameter(format!(
+        "Missing issuer url"
+    )))?;
     let issuer_url = issuer_url.parse::<Url>().map_err(|_| {
         StartupError::InvalidParameter(format!("Invalid issuer_url: {}", issuer_url))
     })?;
@@ -163,13 +165,10 @@ mod tests {
             })
             .once();
 
-        let result = <OAuth2ResourceServer>::new(
-            "http://some-issuer.com",
-            None,
-            vec![],
-            Duration::from_secs(1),
-            None,
-        )
+        let result = <OAuth2ResourceServer>::new(vec![TenantConfiguration::builder()
+            .issuer_url("http://some-issuer.com")
+            .build()
+            .unwrap()])
         .await;
         assert!(result.is_ok());
     }
@@ -180,13 +179,11 @@ mod tests {
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().never();
 
-        let result = <OAuth2ResourceServer>::new(
-            "http://some-issuer.com",
-            Some("https://some-issuer.com/jwks".to_owned()),
-            vec![],
-            Duration::from_secs(1),
-            None,
-        )
+        let result = <OAuth2ResourceServer>::new(vec![TenantConfiguration::builder()
+            .issuer_url("http://some-issuer.com")
+            .jwks_url("https://some-issuer.com/jwks")
+            .build()
+            .unwrap()])
         .await;
         assert!(result.is_ok());
     }

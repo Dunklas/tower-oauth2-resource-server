@@ -81,6 +81,9 @@ pub mod server;
 /// via [claims_validation](crate::builder::OAuth2ResourceServerBuilder::claims_validation).
 pub mod validation;
 
+/// TODO: documentation
+pub mod tenant;
+
 mod error;
 mod jwks;
 mod jwt_extract;

@@ -2,18 +2,17 @@ use std::{marker::PhantomData, time::Duration};
 
 use serde::de::DeserializeOwned;
 
-use crate::{error::StartupError, server::OAuth2ResourceServer, validation::ClaimsValidationSpec};
+use crate::{
+    error::StartupError, server::OAuth2ResourceServer, tenant::TenantConfiguration,
+    validation::ClaimsValidationSpec,
+};
 
 #[derive(Debug)]
 pub struct OAuth2ResourceServerBuilder<Claims>
 where
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
 {
-    issuer_url: Option<String>,
-    jwks_url: Option<String>,
-    audiences: Vec<String>,
-    jwks_refresh_interval: Duration,
-    claims_validation_spec: Option<ClaimsValidationSpec>,
+    tenant_configurations: Vec<TenantConfiguration>,
     phantom: PhantomData<Claims>,
 }
 
@@ -32,76 +31,13 @@ where
 {
     fn new() -> Self {
         OAuth2ResourceServerBuilder::<Claims> {
-            issuer_url: None,
-            jwks_url: None,
-            audiences: Vec::new(),
-            jwks_refresh_interval: Duration::from_secs(60),
-            claims_validation_spec: None,
+            tenant_configurations: Vec::new(),
             phantom: PhantomData,
         }
     }
 
-    /// Set the issuer_url (what authorization server to use).
-    ///
-    /// On startup, the OIDC Provider Configuration endpoint of the
-    /// authorization server will be queried in order to
-    /// self-configure the middleware.
-    ///
-    /// If `issuer_url` is set to `https://authorization-server.com/issuer`,
-    /// at least one of the following endpoints need to available.
-    ///
-    /// - `https://authorization-server.com/issuer/.well-known/openid-configuration`
-    /// - `https://authorization-server.com/.well-known/openid-configuration/issuer`
-    /// - `https://authorization-server.com/.well-known/oauth-authorization-server/issuer`
-    ///
-    /// A consequence of the self-configuration is that the authorization server
-    /// must be available when the middleware is started.
-    /// In cases where the middleware must be able to start independently from
-    /// the authorization server, the `jwks_url` property can be set.
-    /// This will prevent the self-configuration on start up.
-    ///
-    /// **Note** that it's still required to provide `issuer_url`
-    /// because it's used to validate `iss` claim of JWTs.
-    pub fn issuer_url(mut self, issuer_url: impl Into<String>) -> Self {
-        self.issuer_url = Some(issuer_url.into());
-        self
-    }
-
-    /// Set the jwks_url (what url to query valid public keys from).
-    ///
-    /// This url is normally fetched by calling the OIDC Provider Configuration endpoint
-    /// of the authorization server.
-    /// Only provide this property if the middleware must be able to start
-    /// independently from the authorization server.
-    pub fn jwks_url(mut self, jwks_url: impl Into<String>) -> Self {
-        self.jwks_url = Some(jwks_url.into());
-        self
-    }
-
-    /// Set the expected audiences.
-    ///
-    /// Used to validate `aud` claim of JWTs.
-    pub fn audiences(mut self, audiences: &[impl ToString]) -> Self {
-        self.audiences = audiences.iter().map(|aud| aud.to_string()).collect();
-        self
-    }
-
-    /// Set the interval for rotating jwks.
-    ///
-    /// The `jwks_url` is periodically queried in order to update
-    /// public keys that JWT signatures will be validated against.
-    ///
-    /// Default value is `Duration::from_secs(60)`.
-    pub fn jwks_refresh_interval(mut self, jwk_set_refresh_interval: Duration) -> Self {
-        self.jwks_refresh_interval = jwk_set_refresh_interval;
-        self
-    }
-
-    /// Set what claims of JWTs to validate.
-    ///
-    /// By default, `iss`, `exp`, `aud` and possibly `nbf` will be validated.
-    pub fn claims_validation(mut self, claims_validation: ClaimsValidationSpec) -> Self {
-        self.claims_validation_spec = Some(claims_validation);
+    pub fn add_tenant(mut self, tenant_configuration: TenantConfiguration) -> Self {
+        self.tenant_configurations.push(tenant_configuration);
         self
     }
 
@@ -111,15 +47,19 @@ where
     /// authorization server might be queried.
     /// Thus, the operation can fail and therefore returns a Result.
     pub async fn build(self) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
-        let issuer_url = self.issuer_url.ok_or(StartupError::InvalidParameter(
-            "issuer_url is required".to_owned(),
-        ))?;
+        assert!(self.tenant_configurations.len() > 0);
+        let config = self.tenant_configurations.first().unwrap();
+        let issuer_url = config.issuer_url.as_ref().unwrap().clone();
+        let jwks_refresh = config
+            .jwks_refresh_interval
+            .or_else(|| Some(Duration::from_secs(60)))
+            .unwrap();
         OAuth2ResourceServer::new(
             &issuer_url,
-            self.jwks_url,
-            self.audiences.clone(),
-            self.jwks_refresh_interval,
-            self.claims_validation_spec,
+            config.jwks_url.clone(),
+            config.audiences.clone(),
+            jwks_refresh,
+            config.claims_validation_spec.clone(),
         )
         .await
     }

@@ -8,6 +8,7 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::{
+    auth_resolver::{AuthorizerResolver, SingleAuthorizerResolver},
     authorizer::token_authorizer::Authorizer,
     claims::DefaultClaims,
     error::{AuthError, StartupError},
@@ -30,6 +31,7 @@ use crate::oidc::OidcDiscovery;
 pub struct OAuth2ResourceServer<Claims = DefaultClaims> {
     authorizers: Vec<Authorizer<Claims>>,
     jwt_extractor: Arc<dyn JwtExtractor + Send + Sync>,
+    auth_resolver: Arc<dyn AuthorizerResolver<Claims>>,
 }
 
 impl<Claims> OAuth2ResourceServer<Claims>
@@ -52,6 +54,7 @@ where
         Ok(OAuth2ResourceServer {
             jwt_extractor: Arc::new(BearerTokenJwtExtractor {}),
             authorizers,
+            auth_resolver: Arc::new(SingleAuthorizerResolver {}),
         })
     }
 
@@ -66,7 +69,10 @@ where
                 return Err(e);
             }
         };
-        let authorizer = self.authorizers.first().unwrap();
+        let auth_resolver = self.auth_resolver.as_ref();
+        let authorizer = auth_resolver
+            .select_authorizer(request.headers(), &self.authorizers)
+            .ok_or(AuthError::AuthorizerNotFound)?;
         match authorizer.jwt_validator.validate(&token).await {
             Ok(res) => {
                 debug!("JWT validation successful");

@@ -41,6 +41,7 @@ pub enum AuthError {
     ValidationFailed {
         reason: jsonwebtoken::errors::ErrorKind,
     },
+    AuthorizerNotFound,
 }
 
 impl Display for AuthError {

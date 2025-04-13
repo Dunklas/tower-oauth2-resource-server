@@ -81,6 +81,7 @@ pub mod server;
 /// via [claims_validation](crate::builder::OAuth2ResourceServerBuilder::claims_validation).
 pub mod validation;
 
+pub mod auth_resolver;
 /// TODO: documentation
 pub mod tenant;
 

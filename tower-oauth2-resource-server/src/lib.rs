@@ -86,7 +86,5 @@ pub mod tenant;
 
 mod authorizer;
 mod error;
-mod jwks;
 mod jwt_extract;
-mod jwt_validate;
 mod oidc;

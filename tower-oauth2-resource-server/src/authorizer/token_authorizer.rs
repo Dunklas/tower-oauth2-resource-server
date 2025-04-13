@@ -4,12 +4,13 @@ use log::info;
 use serde::de::DeserializeOwned;
 
 use crate::{
+    authorizer::{jwks::TimerJwksProducer, jwt_validate::OnlyJwtValidator},
     error::StartupError,
-    jwks::{JwksProducer, TimerJwksProducer},
-    jwt_validate::{JwtValidator, OnlyJwtValidator},
     server::resolve_config,
     tenant::TenantConfiguration,
 };
+
+use super::{jwks::JwksProducer, jwt_validate::JwtValidator};
 
 #[derive(Clone)]
 pub struct Authorizer<Claims> {

@@ -66,8 +66,8 @@ where
                 return Err(e);
             }
         };
-        let validator = self.authorizers.first().unwrap();
-        match validator.jwt_validator.validate(&token).await {
+        let authorizer = self.authorizers.first().unwrap();
+        match authorizer.jwt_validator.validate(&token).await {
             Ok(res) => {
                 debug!("JWT validation successful");
                 request.extensions_mut().insert(res);

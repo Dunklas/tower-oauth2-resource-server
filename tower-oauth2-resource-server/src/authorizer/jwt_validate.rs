@@ -15,9 +15,10 @@ use tokio::sync::RwLock;
 
 use crate::{
     error::{AuthError, JwkError},
-    jwks::JwksConsumer,
     validation::ClaimsValidationSpec,
 };
+
+use super::jwks::JwksConsumer;
 
 #[async_trait]
 pub trait JwtValidator<Claims> {
@@ -171,7 +172,9 @@ mod tests {
     use serde_json::{json, Value};
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    use crate::{error::AuthError, jwks::JwksConsumer, validation::ClaimsValidationSpec};
+    use crate::{
+        authorizer::jwks::JwksConsumer, error::AuthError, validation::ClaimsValidationSpec,
+    };
 
     use super::{JwtValidator, OnlyJwtValidator};
 

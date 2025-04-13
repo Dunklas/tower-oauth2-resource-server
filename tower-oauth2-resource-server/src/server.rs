@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::{
-    authorizer::authorizer::Authorizer,
+    authorizer::token_authorizer::Authorizer,
     claims::DefaultClaims,
     error::{AuthError, StartupError},
     jwks::{JwksProducer, TimerJwksProducer},
@@ -111,6 +111,7 @@ where
     }
 }
 
+// TODO: Move this into TenantConfiguration?
 async fn resolve_config(
     issuer_url: Option<String>,
     jwks_url: Option<String>,
@@ -127,9 +128,9 @@ async fn resolve_config(
         })?;
         return Ok((jwks_url, claims_spec));
     }
-    let issuer_url = issuer_url.ok_or(StartupError::InvalidParameter(format!(
-        "Missing issuer url"
-    )))?;
+    let issuer_url = issuer_url.ok_or(StartupError::InvalidParameter(
+        "Missing issuer url".to_string(),
+    ))?;
     let issuer_url = issuer_url.parse::<Url>().map_err(|_| {
         StartupError::InvalidParameter(format!("Invalid issuer_url: {}", issuer_url))
     })?;

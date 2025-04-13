@@ -13,6 +13,7 @@ impl<Claims> Authorizer<Claims>
 where
     Claims: Clone + Send + Sync + 'static,
 {
+    // TODO: Accept a tenant configuration
     pub fn new(
         jwt_validator: Arc<dyn JwtValidator<Claims> + Send + Sync>,
         jwks_producer: Arc<dyn JwksProducer + Send + Sync>,

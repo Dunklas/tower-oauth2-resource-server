@@ -44,7 +44,7 @@ where
     /// authorization server might be queried.
     /// Thus, the operation can fail and therefore returns a Result.
     pub async fn build(self) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
-        assert!(self.tenant_configurations.len() > 0);
+        assert!(!self.tenant_configurations.is_empty());
         OAuth2ResourceServer::new(self.tenant_configurations).await
     }
 }
@@ -58,6 +58,7 @@ where
     }
 }
 
+// TODO: Remove or move test?
 #[cfg(test)]
 mod tests {
     use serde::Deserialize;

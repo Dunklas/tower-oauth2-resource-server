@@ -1,1 +1,1 @@
-pub(crate) mod authorizer;
+pub(crate) mod token_authorizer;

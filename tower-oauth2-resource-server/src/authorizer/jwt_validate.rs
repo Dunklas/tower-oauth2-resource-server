@@ -15,6 +15,7 @@ use tokio::sync::RwLock;
 
 use crate::{
     error::{AuthError, JwkError},
+    jwt_unverified::UnverifiedJwt,
     validation::ClaimsValidationSpec,
 };
 
@@ -22,7 +23,7 @@ use super::jwks::JwksConsumer;
 
 #[async_trait]
 pub trait JwtValidator<Claims> {
-    async fn validate(&self, jwt: &str) -> Result<Claims, AuthError>;
+    async fn validate(&self, jwt: &UnverifiedJwt) -> Result<Claims, AuthError>;
 }
 
 pub struct OnlyJwtValidator {
@@ -36,8 +37,8 @@ impl<Claims> JwtValidator<Claims> for OnlyJwtValidator
 where
     Claims: DeserializeOwned,
 {
-    async fn validate(&self, token: &str) -> Result<Claims, AuthError> {
-        let header = decode_header(token).or(Err(AuthError::ParseJwtError))?;
+    async fn validate(&self, token: &UnverifiedJwt) -> Result<Claims, AuthError> {
+        let header = decode_header(token.as_str()).or(Err(AuthError::ParseJwtError))?;
         let key_id = header.kid.ok_or(AuthError::ParseJwtError)?;
 
         let decoding_keys = self.decoding_keys.read().await;
@@ -47,7 +48,7 @@ where
             .get(&header.alg)
             .ok_or(AuthError::UnsupportedAlgorithm(header.alg))?;
 
-        match decode::<Claims>(token, decoding_key, validation) {
+        match decode::<Claims>(token.as_str(), decoding_key, validation) {
             Ok(result) => Ok(result.claims),
             Err(e) => Err(AuthError::ValidationFailed {
                 reason: e.into_kind(),
@@ -155,6 +156,7 @@ fn parse_key_alg(key_alg: KeyAlgorithm) -> Option<Algorithm> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use base64::{
         alphabet,
         engine::{self, general_purpose},
@@ -195,7 +197,7 @@ mod tests {
     #[tokio::test]
     async fn empty_token() {
         let validator = create_validator(ClaimsValidationSpec::new()).await;
-        let result = validator.validate("").await;
+        let result = validator.validate(&UnverifiedJwt::new("")).await;
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), AuthError::ParseJwtError);
@@ -206,7 +208,7 @@ mod tests {
         let validator = create_validator(ClaimsValidationSpec::new()).await;
         let token = jwt_from(&serde_json::json!({}), None);
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), AuthError::ParseJwtError);
@@ -217,7 +219,7 @@ mod tests {
         let validator = create_validator(ClaimsValidationSpec::new()).await;
         let token = jwt_from(&serde_json::json!({}), Some("another-kid".to_owned()));
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), AuthError::InvalidKeyId);
@@ -237,7 +239,7 @@ mod tests {
         header.kid = Some(DEFAULT_KID.to_owned());
         let token = encode(&header, &serde_json::json!({}), &another_encoding_key).unwrap();
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -253,7 +255,7 @@ mod tests {
         let validator = create_validator(ClaimsValidationSpec::new().nbf(true)).await;
         let token = jwt_from(&serde_json::json!({}), Some(DEFAULT_KID.to_owned()));
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -274,7 +276,7 @@ mod tests {
             Some(DEFAULT_KID.to_owned()),
         );
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -290,7 +292,7 @@ mod tests {
         let validator = create_validator(ClaimsValidationSpec::new().exp(true)).await;
         let token = jwt_from(&serde_json::json!({}), Some(DEFAULT_KID.to_owned()));
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -310,7 +312,7 @@ mod tests {
         .await;
         let token = jwt_from(&serde_json::json!({}), Some(DEFAULT_KID.to_owned()));
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -335,7 +337,7 @@ mod tests {
             Some(DEFAULT_KID.to_owned()),
         );
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -356,7 +358,7 @@ mod tests {
             Some(DEFAULT_KID.to_owned()),
         );
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -372,7 +374,7 @@ mod tests {
         let validator = create_validator(ClaimsValidationSpec::new().iss("iss")).await;
         let token = jwt_from(&serde_json::json!({}), Some(DEFAULT_KID.to_owned()));
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -394,7 +396,7 @@ mod tests {
             Some(DEFAULT_KID.to_owned()),
         );
 
-        let result = validator.validate(&token).await;
+        let result = validator.validate(&UnverifiedJwt::new(token)).await;
 
         assert!(result.is_err());
         assert_eq!(

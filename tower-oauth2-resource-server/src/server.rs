@@ -71,7 +71,7 @@ where
         };
         let auth_resolver = self.auth_resolver.as_ref();
         let authorizer = auth_resolver
-            .select_authorizer(request.headers(), &self.authorizers)
+            .select_authorizer(request.headers(), &token, &self.authorizers)
             .ok_or(AuthError::AuthorizerNotFound)?;
         match authorizer.jwt_validator.validate(&token).await {
             Ok(res) => {

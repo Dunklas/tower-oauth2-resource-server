@@ -82,6 +82,7 @@ pub mod server;
 pub mod validation;
 
 pub mod auth_resolver;
+pub mod jwt_unverified;
 /// TODO: documentation
 pub mod tenant;
 

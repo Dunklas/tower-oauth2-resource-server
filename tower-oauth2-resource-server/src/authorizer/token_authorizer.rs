@@ -14,6 +14,7 @@ use super::{jwks::JwksProducer, jwt_validate::JwtValidator};
 
 #[derive(Clone)]
 pub struct Authorizer<Claims> {
+    identifier: String,
     pub jwt_validator: Arc<dyn JwtValidator<Claims> + Send + Sync>,
     #[allow(dead_code)]
     jwks_producer: Arc<dyn JwksProducer + Send + Sync>,
@@ -42,8 +43,15 @@ where
         jwks_producer.start();
 
         Ok(Self {
+            identifier: config.identifier,
             jwt_validator: validator,
             jwks_producer: Arc::new(jwks_producer),
         })
+    }
+}
+
+impl<Claims> Authorizer<Claims> {
+    pub fn identifier(&self) -> &str {
+        &self.identifier
     }
 }

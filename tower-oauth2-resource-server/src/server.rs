@@ -1,8 +1,9 @@
 use core::fmt;
 use std::sync::Arc;
 
+use futures_util::future::join_all;
 use http::Request;
-use log::{debug, info};
+use log::debug;
 use serde::de::DeserializeOwned;
 use url::Url;
 
@@ -10,9 +11,7 @@ use crate::{
     authorizer::token_authorizer::Authorizer,
     claims::DefaultClaims,
     error::{AuthError, StartupError},
-    jwks::{JwksProducer, TimerJwksProducer},
     jwt_extract::{BearerTokenJwtExtractor, JwtExtractor},
-    jwt_validate::OnlyJwtValidator,
     layer::OAuth2ResourceServerLayer,
     tenant::TenantConfiguration,
     validation::ClaimsValidationSpec,
@@ -40,29 +39,19 @@ where
     pub(crate) async fn new(
         tenant_configurations: Vec<TenantConfiguration>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
-        let config = tenant_configurations.into_iter().next().unwrap();
-        let (jwks_url, claims_validation_spec) =
-            resolve_config(config.issuer_url, config.jwks_url, config.audiences).await?;
-        let claims_validation_spec = config
-            .claims_validation_spec
-            .unwrap_or(claims_validation_spec);
-        info!(
-            "Will validate the following claims: {}",
-            claims_validation_spec
-        );
-
-        let validator = Arc::new(OnlyJwtValidator::new(claims_validation_spec));
-
-        let mut jwks_producer =
-            TimerJwksProducer::new(jwks_url.clone(), config.jwks_refresh_interval);
-        jwks_producer.add_consumer(validator.clone());
-        jwks_producer.start();
-
-        let authorizer = Authorizer::new(validator, Arc::new(jwks_producer));
+        let authorizers = join_all(
+            tenant_configurations
+                .into_iter()
+                .map(Authorizer::<Claims>::new)
+                .collect::<Vec<_>>(),
+        )
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, StartupError>>()?;
 
         Ok(OAuth2ResourceServer {
             jwt_extractor: Arc::new(BearerTokenJwtExtractor {}),
-            authorizers: vec![authorizer],
+            authorizers,
         })
     }
 
@@ -112,7 +101,7 @@ where
 }
 
 // TODO: Move this into TenantConfiguration?
-async fn resolve_config(
+pub async fn resolve_config(
     issuer_url: Option<String>,
     jwks_url: Option<String>,
     audiences: Vec<String>,

@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::{
-    auth_resolver::{self, AuthorizerResolver, SingleAuthorizerResolver},
+    auth_resolver::AuthorizerResolver,
     authorizer::token_authorizer::Authorizer,
     claims::DefaultClaims,
     error::{AuthError, StartupError},

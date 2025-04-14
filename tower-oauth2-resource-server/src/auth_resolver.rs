@@ -37,7 +37,6 @@ impl<Claims> AuthorizerResolver<Claims> for IssuerAuthorizerResolver {
         let issuer = claims.get("iss")?.as_str()?;
         authorizers
             .iter()
-            .filter(|authorizer| authorizer.identifier() == issuer)
-            .next()
+            .find(|authorizer| authorizer.identifier() == issuer)
     }
 }

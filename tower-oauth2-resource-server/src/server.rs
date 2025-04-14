@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 use url::Url;
 
 use crate::{
-    auth_resolver::{AuthorizerResolver, SingleAuthorizerResolver},
+    auth_resolver::{self, AuthorizerResolver, SingleAuthorizerResolver},
     authorizer::token_authorizer::Authorizer,
     claims::DefaultClaims,
     error::{AuthError, StartupError},
@@ -40,6 +40,7 @@ where
 {
     pub(crate) async fn new(
         tenant_configurations: Vec<TenantConfiguration>,
+        auth_resolver: Arc<dyn AuthorizerResolver<Claims>>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
         let authorizers = join_all(
             tenant_configurations
@@ -54,7 +55,7 @@ where
         Ok(OAuth2ResourceServer {
             jwt_extractor: Arc::new(BearerTokenJwtExtractor {}),
             authorizers,
-            auth_resolver: Arc::new(SingleAuthorizerResolver {}),
+            auth_resolver,
         })
     }
 
@@ -162,10 +163,13 @@ mod tests {
             })
             .once();
 
-        let result = <OAuth2ResourceServer>::new(vec![TenantConfiguration::builder()
-            .issuer_url("http://some-issuer.com")
-            .build()
-            .unwrap()])
+        let result = <OAuth2ResourceServer>::new(
+            vec![TenantConfiguration::builder()
+                .issuer_url("http://some-issuer.com")
+                .build()
+                .unwrap()],
+            Arc::new(SingleAuthorizerResolver {}),
+        )
         .await;
         assert!(result.is_ok());
     }
@@ -176,11 +180,14 @@ mod tests {
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().never();
 
-        let result = <OAuth2ResourceServer>::new(vec![TenantConfiguration::builder()
-            .issuer_url("http://some-issuer.com")
-            .jwks_url("https://some-issuer.com/jwks")
-            .build()
-            .unwrap()])
+        let result = <OAuth2ResourceServer>::new(
+            vec![TenantConfiguration::builder()
+                .issuer_url("http://some-issuer.com")
+                .jwks_url("https://some-issuer.com/jwks")
+                .build()
+                .unwrap()],
+            Arc::new(SingleAuthorizerResolver {}),
+        )
         .await;
         assert!(result.is_ok());
     }

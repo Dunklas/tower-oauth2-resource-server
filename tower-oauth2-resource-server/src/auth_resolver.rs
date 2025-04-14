@@ -2,7 +2,7 @@ use http::HeaderMap;
 
 use crate::{authorizer::token_authorizer::Authorizer, jwt_unverified::UnverifiedJwt};
 
-pub trait AuthorizerResolver<Claims>: Send + Sync {
+pub trait AuthorizerResolver<Claims>: Send + Sync + std::fmt::Debug {
     fn select_authorizer<'a>(
         &'a self,
         headers: &HeaderMap,
@@ -11,6 +11,7 @@ pub trait AuthorizerResolver<Claims>: Send + Sync {
     ) -> Option<&'a Authorizer<Claims>>;
 }
 
+#[derive(Debug)]
 pub struct SingleAuthorizerResolver {}
 
 impl<Claims> AuthorizerResolver<Claims> for SingleAuthorizerResolver {
@@ -24,6 +25,7 @@ impl<Claims> AuthorizerResolver<Claims> for SingleAuthorizerResolver {
     }
 }
 
+#[derive(Debug)]
 pub struct IssuerAuthorizerResolver {}
 
 impl<Claims> AuthorizerResolver<Claims> for IssuerAuthorizerResolver {

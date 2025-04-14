@@ -68,7 +68,7 @@ where
             .as_ref()
             .select_authorizer(request.headers(), &token, &self.authorizers)
             .ok_or(AuthError::AuthorizerNotFound)?;
-        match authorizer.jwt_validator.validate(&token).await {
+        match authorizer.validate(&token).await {
             Ok(res) => {
                 debug!("JWT validation successful ({})", authorizer.identifier());
                 request.extensions_mut().insert(res);

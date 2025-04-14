@@ -142,7 +142,7 @@ impl TenantConfigurationBuilder {
             })
             .transpose()?;
 
-        let oidc_config = if let Some(_) = &jwks_url {
+        let oidc_config = if jwks_url.is_some() {
             None
         } else if let Some(issuer_url) = &issuer_url {
             Some(

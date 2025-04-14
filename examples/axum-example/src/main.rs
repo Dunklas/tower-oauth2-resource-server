@@ -2,7 +2,9 @@ use axum::{http::StatusCode, routing::get, Extension, Router};
 use log::info;
 use tokio::signal;
 use tower::ServiceBuilder;
-use tower_oauth2_resource_server::{claims::DefaultClaims, server::OAuth2ResourceServer};
+use tower_oauth2_resource_server::{
+    claims::DefaultClaims, server::OAuth2ResourceServer, tenant::TenantConfiguration,
+};
 
 #[tokio::main]
 async fn main() {
@@ -13,14 +15,20 @@ async fn main() {
     info!("Running OIDC provider on port: {}", oidc_provider_port);
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
-        .audiences(&["tors-example"])
-        .issuer_url(format!(
-            "http://{}:{}/realms/tors",
-            oidc_provider_host, oidc_provider_port
-        ))
+        .add_tenant(
+            TenantConfiguration::builder()
+                .audiences(&["tors-example"])
+                .issuer_url(format!(
+                    "http://{}:{}/realms/tors",
+                    oidc_provider_host, oidc_provider_port
+                ))
+                .build()
+                .await
+                .expect("Failed to build tenant configuration"),
+        )
         .build()
         .await
-        .expect("Failed to build OAuth2ResourceServer");
+        .expect("Failed to build OAuth2 resource server");
 
     let app = Router::new()
         .route("/", get(root))

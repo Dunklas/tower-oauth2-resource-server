@@ -145,7 +145,10 @@ pub async fn resolve_config(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::oidc::{MockOidcDiscovery, OidcConfig};
+    use crate::{
+        auth_resolver::SingleAuthorizerResolver,
+        oidc::{MockOidcDiscovery, OidcConfig},
+    };
     use std::sync::Mutex;
 
     static MTX: Mutex<()> = Mutex::new(());

@@ -86,7 +86,7 @@ pub mod jwt_unverified;
 /// TODO: documentation
 pub mod tenant;
 
-mod authorizer;
+pub mod authorizer;
 mod error;
 mod jwt_extract;
 mod oidc;

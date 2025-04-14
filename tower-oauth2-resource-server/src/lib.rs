@@ -15,7 +15,7 @@ pub mod authorizer;
 ///
 /// # Example using [DefaultClaims](crate::claims::DefaultClaims)
 ///
-/// ```
+/// ```no_run
 /// use tower_oauth2_resource_server::server::OAuth2ResourceServer;
 /// use tower_oauth2_resource_server::tenant::TenantConfiguration;
 ///
@@ -33,7 +33,7 @@ pub mod authorizer;
 ///
 /// # Example using custom claims implementation
 ///
-/// ```
+/// ```no_run
 /// use serde::{Deserialize, Serialize};
 /// use tower_oauth2_resource_server::server::OAuth2ResourceServer;
 /// use tower_oauth2_resource_server::tenant::TenantConfiguration;

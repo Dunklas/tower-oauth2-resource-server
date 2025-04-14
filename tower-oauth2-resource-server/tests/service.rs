@@ -123,6 +123,7 @@ async fn default_auth_layer(
                 .issuer_url(mock_server.uri())
                 .audiences(audiences)
                 .build()
+                .await
                 .unwrap(),
         )
         .build()

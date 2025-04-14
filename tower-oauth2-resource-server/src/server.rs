@@ -5,7 +5,6 @@ use futures_util::future::join_all;
 use http::Request;
 use log::debug;
 use serde::de::DeserializeOwned;
-use url::Url;
 
 use crate::{
     auth_resolver::AuthorizerResolver,
@@ -15,13 +14,7 @@ use crate::{
     jwt_extract::{BearerTokenJwtExtractor, JwtExtractor},
     layer::OAuth2ResourceServerLayer,
     tenant::TenantConfiguration,
-    validation::ClaimsValidationSpec,
 };
-
-use mockall_double::double;
-
-#[double]
-use crate::oidc::OidcDiscovery;
 
 /// OAuth2ResourceServer
 ///
@@ -70,18 +63,23 @@ where
                 return Err(e);
             }
         };
-        let auth_resolver = self.auth_resolver.as_ref();
-        let authorizer = auth_resolver
+        let authorizer = self
+            .auth_resolver
+            .as_ref()
             .select_authorizer(request.headers(), &token, &self.authorizers)
             .ok_or(AuthError::AuthorizerNotFound)?;
         match authorizer.jwt_validator.validate(&token).await {
             Ok(res) => {
-                debug!("JWT validation successful");
+                debug!("JWT validation successful ({})", authorizer.identifier());
                 request.extensions_mut().insert(res);
                 Ok(request)
             }
             Err(e) => {
-                debug!("JWT validation failed: {}", e);
+                debug!(
+                    "JWT validation failed ({}) : {}",
+                    authorizer.identifier(),
+                    e
+                );
                 Err(e)
             }
         }
@@ -104,94 +102,5 @@ where
     /// Returns a [tower layer](https://docs.rs/tower/latest/tower/trait.Layer.html).
     pub fn into_layer(&self) -> OAuth2ResourceServerLayer<Claims> {
         OAuth2ResourceServerLayer::new(self.clone())
-    }
-}
-
-// TODO: Move this into TenantConfiguration?
-pub async fn resolve_config(
-    issuer_url: Option<String>,
-    jwks_url: Option<String>,
-    audiences: Vec<String>,
-) -> Result<(Url, ClaimsValidationSpec), StartupError> {
-    let mut claims_spec = ClaimsValidationSpec::new().aud(audiences).exp(true);
-    if let Some(issuer_uri) = &issuer_url {
-        claims_spec = claims_spec.iss(issuer_uri);
-    }
-
-    if let Some(jwks_url) = jwks_url {
-        let jwks_url = jwks_url.parse::<Url>().map_err(|_| {
-            StartupError::InvalidParameter(format!("Invalid jwks_url: {}", jwks_url))
-        })?;
-        return Ok((jwks_url, claims_spec));
-    }
-    let issuer_url = issuer_url.ok_or(StartupError::InvalidParameter(
-        "Missing issuer url".to_string(),
-    ))?;
-    let issuer_url = issuer_url.parse::<Url>().map_err(|_| {
-        StartupError::InvalidParameter(format!("Invalid issuer_url: {}", issuer_url))
-    })?;
-    let oidc_config = OidcDiscovery::discover(&issuer_url)
-        .await
-        .map_err(|e| StartupError::OidcDiscoveryFailed(e.to_string()))?;
-
-    if let Some(claims_supported) = &oidc_config.claims_supported {
-        if claims_supported.contains(&"nbf".to_owned()) {
-            claims_spec = claims_spec.nbf(true);
-        }
-    }
-    Ok((oidc_config.jwks_uri, claims_spec))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        auth_resolver::SingleAuthorizerResolver,
-        oidc::{MockOidcDiscovery, OidcConfig},
-    };
-    use std::sync::Mutex;
-
-    static MTX: Mutex<()> = Mutex::new(());
-
-    #[tokio::test]
-    async fn test_should_perform_oidc_discovery() {
-        let _m = MTX.lock();
-        let ctx = MockOidcDiscovery::discover_context();
-        ctx.expect()
-            .returning(|_| {
-                Ok(OidcConfig {
-                    jwks_uri: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
-                    claims_supported: None,
-                })
-            })
-            .once();
-
-        let result = <OAuth2ResourceServer>::new(
-            vec![TenantConfiguration::builder()
-                .issuer_url("http://some-issuer.com")
-                .build()
-                .unwrap()],
-            Arc::new(SingleAuthorizerResolver {}),
-        )
-        .await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_should_skip_oidc_discovery_if_jwks_url_set() {
-        let _m = MTX.lock();
-        let ctx = MockOidcDiscovery::discover_context();
-        ctx.expect().never();
-
-        let result = <OAuth2ResourceServer>::new(
-            vec![TenantConfiguration::builder()
-                .issuer_url("http://some-issuer.com")
-                .jwks_url("https://some-issuer.com/jwks")
-                .build()
-                .unwrap()],
-            Arc::new(SingleAuthorizerResolver {}),
-        )
-        .await;
-        assert!(result.is_ok());
     }
 }

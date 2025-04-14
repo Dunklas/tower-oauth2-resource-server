@@ -77,25 +77,3 @@ where
         Self::new()
     }
 }
-
-// TODO: Remove or move test?
-#[cfg(test)]
-mod tests {
-    use serde::Deserialize;
-
-    use super::*;
-    use crate::error::StartupError;
-
-    #[derive(Clone, Deserialize)]
-    struct Claims {}
-
-    #[tokio::test]
-    async fn require_issuer() {
-        let result = OAuth2ResourceServerBuilder::<Claims>::new().build().await;
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            StartupError::InvalidParameter("issuer_url is required".to_owned())
-        );
-    }
-}

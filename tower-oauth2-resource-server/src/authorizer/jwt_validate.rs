@@ -307,7 +307,7 @@ mod tests {
     async fn missing_aud() {
         let validator = create_validator(
             ClaimsValidationSpec::new()
-                .aud(["https://some-resource.server.com".to_owned()].to_vec()),
+                .aud(&["https://some-resource.server.com".to_owned()].to_vec()),
         )
         .await;
         let token = jwt_from(&serde_json::json!({}), Some(DEFAULT_KID.to_owned()));
@@ -327,7 +327,7 @@ mod tests {
     async fn invalid_aud() {
         let validator = create_validator(
             ClaimsValidationSpec::new()
-                .aud(["https://some-resource-server.com".to_owned()].to_vec()),
+                .aud(&["https://some-resource-server.com".to_owned()].to_vec()),
         )
         .await;
         let token = jwt_from(

@@ -1,15 +1,20 @@
 use std::time::Duration;
 
-use crate::{error::StartupError, validation::ClaimsValidationSpec};
+use mockall_double::double;
+use url::Url;
+
+use crate::{error::StartupError, oidc::OidcConfig, validation::ClaimsValidationSpec};
+
+#[double]
+use crate::oidc::OidcDiscovery;
 
 #[derive(Debug, Clone)]
 pub struct TenantConfiguration {
     pub identifier: String,
-    pub issuer_url: Option<String>,
-    pub jwks_url: Option<String>,
+    pub jwks_url: Url,
     pub audiences: Vec<String>,
     pub jwks_refresh_interval: Duration,
-    pub claims_validation_spec: Option<ClaimsValidationSpec>,
+    pub claims_validation_spec: ClaimsValidationSpec,
 }
 
 impl TenantConfiguration {
@@ -104,7 +109,7 @@ impl TenantConfigurationBuilder {
     }
 
     /// Construct a TenantConfiguration.
-    pub fn build(self) -> Result<TenantConfiguration, StartupError> {
+    pub async fn build(self) -> Result<TenantConfiguration, StartupError> {
         let identifier = match self.identifier {
             Some(id) => id,
             None => match &self.issuer_url {
@@ -117,15 +122,131 @@ impl TenantConfigurationBuilder {
             },
         };
 
+        let issuer_url = self
+            .issuer_url
+            .as_deref()
+            .map(|issuer_url| {
+                Url::parse(issuer_url).map_err(|_| {
+                    StartupError::InvalidParameter("Invalid issuer_url format".to_string())
+                })
+            })
+            .transpose()?;
+
+        let jwks_url = self
+            .jwks_url
+            .as_deref()
+            .map(|jwks_url| {
+                Url::parse(jwks_url).map_err(|_| {
+                    StartupError::InvalidParameter("Invalid jwks_url format".to_string())
+                })
+            })
+            .transpose()?;
+
+        let oidc_config = if let Some(_) = &jwks_url {
+            None
+        } else if let Some(issuer_url) = &issuer_url {
+            Some(
+                OidcDiscovery::discover(issuer_url)
+                    .await
+                    .map_err(|e| StartupError::OidcDiscoveryFailed(e.to_string()))?,
+            )
+        } else {
+            return Err(StartupError::InvalidParameter(
+                "Either jwks_url or issuer_url must be provided".to_string(),
+            ));
+        };
+
+        let claims_validation_spec =
+            self.claims_validation_spec
+                .unwrap_or(recommended_claims_spec(
+                    &self.audiences,
+                    &self.issuer_url,
+                    &oidc_config,
+                ));
+
+        let jwks_url = match jwks_url {
+            Some(jwks_url) => jwks_url,
+            None => match oidc_config {
+                Some(oidc_config) => oidc_config.jwks_uri,
+                None => {
+                    return Err(StartupError::InvalidParameter(
+                        "Failed to resolve JWKS URL".to_string(),
+                    ))
+                }
+            },
+        };
+
         Ok(TenantConfiguration {
             identifier,
-            issuer_url: self.issuer_url,
-            jwks_url: self.jwks_url,
+            jwks_url,
             audiences: self.audiences,
             jwks_refresh_interval: self
                 .jwk_set_refresh_interval
                 .unwrap_or(Duration::from_secs(60)),
-            claims_validation_spec: self.claims_validation_spec,
+            claims_validation_spec,
         })
+    }
+}
+
+fn recommended_claims_spec(
+    audiences: &Vec<String>,
+    issuer_url: &Option<String>,
+    oidc_config: &Option<OidcConfig>,
+) -> ClaimsValidationSpec {
+    let mut claims_spec = ClaimsValidationSpec::new().aud(audiences).exp(true);
+    if let Some(issuer_uri) = &issuer_url {
+        claims_spec = claims_spec.iss(&issuer_uri.to_string());
+    }
+    if let Some(config) = &oidc_config {
+        if let Some(claims_supported) = &config.claims_supported {
+            if claims_supported.contains(&"nbf".to_owned()) {
+                claims_spec = claims_spec.nbf(true);
+            }
+        }
+    }
+    claims_spec
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::oidc::{MockOidcDiscovery, OidcConfig};
+    use std::sync::Mutex;
+
+    static MTX: Mutex<()> = Mutex::new(());
+
+    #[tokio::test]
+    async fn test_should_perform_oidc_discovery() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect()
+            .returning(|_| {
+                Ok(OidcConfig {
+                    jwks_uri: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
+                    claims_supported: None,
+                })
+            })
+            .once();
+
+        let result = TenantConfigurationBuilder::new()
+            .issuer_url("http://some-issuer.com")
+            .build()
+            .await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_skip_oidc_discovery_if_jwks_url_set() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().never();
+
+        let result = TenantConfigurationBuilder::new()
+            .issuer_url("http://some-issuer.com")
+            .jwks_url("https://some-issuer.com/jwks")
+            .build()
+            .await;
+        assert!(result.is_ok());
     }
 }

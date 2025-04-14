@@ -11,6 +11,9 @@ pub trait AuthorizerResolver<Claims>: Send + Sync + std::fmt::Debug {
     ) -> Option<&'a Authorizer<Claims>>;
 }
 
+/// Selects the first of the configured authorizers.
+///
+/// This is the default when a single [TenantConfiguration](crate::tenant::TenantConfiguration) is provided.
 #[derive(Debug)]
 pub struct SingleAuthorizerResolver {}
 
@@ -25,6 +28,9 @@ impl<Claims> AuthorizerResolver<Claims> for SingleAuthorizerResolver {
     }
 }
 
+/// Selects an authorizer based on `iss` claim of JWTs.
+///
+/// This is the default when multiple [TenantConfiguration](crate::tenant::TenantConfiguration) instances are provided.
 #[derive(Debug)]
 pub struct IssuerAuthorizerResolver {}
 

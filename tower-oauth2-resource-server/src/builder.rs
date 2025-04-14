@@ -40,11 +40,17 @@ where
         }
     }
 
+    /// Add a tenant (authorization server).
     pub fn add_tenant(mut self, tenant_configuration: TenantConfiguration) -> Self {
         self.tenant_configurations.push(tenant_configuration);
         self
     }
 
+    /// Provide a custom authorization resolver.
+    ///
+    /// Only needs to be provided if the default resolver is not sufficient.
+    ///
+    /// See [AuthorizerResolver] for more information.
     pub fn auth_resolver(mut self, auth_resolver: Arc<dyn AuthorizerResolver<Claims>>) -> Self {
         self.auth_resolver = Some(auth_resolver);
         self

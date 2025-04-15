@@ -62,7 +62,11 @@ where
     /// authorization server might be queried.
     /// Thus, the operation can fail and therefore returns a Result.
     pub async fn build(self) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
-        assert!(!self.tenant_configurations.is_empty());
+        if self.tenant_configurations.is_empty() {
+            return Err(StartupError::InvalidParameter(
+                "At least one TenantConfiguration is required".to_owned(),
+            ));
+        }
         let num_tenants = self.tenant_configurations.len();
         let auth_resolver = self.auth_resolver.unwrap_or_else(|| {
             if num_tenants == 1 {
@@ -81,5 +85,27 @@ where
 {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde::Deserialize;
+
+    use super::*;
+
+    #[derive(Clone, Debug, Deserialize)]
+    struct Claims {}
+
+    #[tokio::test]
+    async fn should_require_tenant_configurations() {
+        let result = OAuth2ResourceServerBuilder::<Claims>::new().build().await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            StartupError::InvalidParameter(
+                "At least one TenantConfiguration is required".to_owned()
+            )
+        )
     }
 }

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ClaimsValidationSpec {
     pub iss: Option<String>,
     pub exp: bool,
@@ -13,7 +13,7 @@ impl ClaimsValidationSpec {
         Self::default()
     }
 
-    pub fn recommended(issuer: &str, audiences: Vec<String>) -> Self {
+    pub fn recommended(issuer: &str, audiences: &Vec<String>) -> Self {
         Self::new().exp(true).nbf(true).iss(issuer).aud(audiences)
     }
 
@@ -32,8 +32,8 @@ impl ClaimsValidationSpec {
         self
     }
 
-    pub fn aud(mut self, audiences: Vec<String>) -> Self {
-        self.aud = Some(audiences);
+    pub fn aud(mut self, audiences: &Vec<String>) -> Self {
+        self.aud = Some(audiences.to_owned());
         self
     }
 }

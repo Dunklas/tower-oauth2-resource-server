@@ -9,6 +9,7 @@ use tower::{BoxError, Service, ServiceBuilder, ServiceExt};
 
 use tower_oauth2_resource_server::{
     claims::DefaultClaims, layer::OAuth2ResourceServerLayer, server::OAuth2ResourceServer,
+    tenant::TenantConfiguration,
 };
 use wiremock::MockServer;
 
@@ -117,8 +118,14 @@ async fn default_auth_layer(
     audiences: &[impl ToString],
 ) -> OAuth2ResourceServerLayer<DefaultClaims> {
     <OAuth2ResourceServer>::builder()
-        .issuer_url(mock_server.uri())
-        .audiences(audiences)
+        .add_tenant(
+            TenantConfiguration::builder()
+                .issuer_url(mock_server.uri())
+                .audiences(audiences)
+                .build()
+                .await
+                .unwrap(),
+        )
         .build()
         .await
         .expect("Failed to build OAuth2ResourceServer")

@@ -7,6 +7,7 @@ use hello_world::greeter_server::{Greeter, GreeterServer};
 use hello_world::{HelloReply, HelloRequest};
 use tower_oauth2_resource_server::claims::DefaultClaims;
 use tower_oauth2_resource_server::server::OAuth2ResourceServer;
+use tower_oauth2_resource_server::tenant::TenantConfiguration;
 
 pub mod hello_world {
     tonic::include_proto!("helloworld");
@@ -21,11 +22,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Running OIDC provider on port: {}", oidc_provider_port);
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
-        .audiences(&["tors-example"])
-        .issuer_url(format!(
-            "http://{}:{}/realms/tors",
-            oidc_provider_host, oidc_provider_port
-        ))
+        .add_tenant(
+            TenantConfiguration::builder()
+                .audiences(&["tors-example"])
+                .issuer_url(format!(
+                    "http://{}:{}/realms/tors",
+                    oidc_provider_host, oidc_provider_port
+                ))
+                .build()
+                .await
+                .expect("Failed to build TenantConfiguration"),
+        )
         .build()
         .await
         .expect("Failed to build OAuth2ResourceServer");

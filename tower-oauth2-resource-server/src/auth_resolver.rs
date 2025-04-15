@@ -5,9 +5,9 @@ use crate::{authorizer::token_authorizer::Authorizer, jwt_unverified::Unverified
 pub trait AuthorizerResolver<Claims>: Send + Sync + std::fmt::Debug {
     fn select_authorizer<'a>(
         &'a self,
+        authorizers: &'a [Authorizer<Claims>],
         headers: &HeaderMap,
         unverified_jwt: &UnverifiedJwt,
-        authorizers: &'a [Authorizer<Claims>],
     ) -> Option<&'a Authorizer<Claims>>;
 }
 
@@ -20,9 +20,9 @@ pub struct SingleAuthorizerResolver {}
 impl<Claims> AuthorizerResolver<Claims> for SingleAuthorizerResolver {
     fn select_authorizer<'a>(
         &'a self,
+        authorizers: &'a [Authorizer<Claims>],
         _headers: &HeaderMap,
         _unverified_jwt: &UnverifiedJwt,
-        authorizers: &'a [Authorizer<Claims>],
     ) -> Option<&'a Authorizer<Claims>> {
         authorizers.first()
     }
@@ -37,9 +37,9 @@ pub struct IssuerAuthorizerResolver {}
 impl<Claims> AuthorizerResolver<Claims> for IssuerAuthorizerResolver {
     fn select_authorizer<'a>(
         &'a self,
+        authorizers: &'a [Authorizer<Claims>],
         _headers: &HeaderMap,
         unverified_jwt: &UnverifiedJwt,
-        authorizers: &'a [Authorizer<Claims>],
     ) -> Option<&'a Authorizer<Claims>> {
         let claims = unverified_jwt.claims()?;
         let issuer = claims.get("iss")?.as_str()?;

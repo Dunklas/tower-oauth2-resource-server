@@ -66,7 +66,7 @@ where
         let authorizer = self
             .auth_resolver
             .as_ref()
-            .select_authorizer(request.headers(), &token, &self.authorizers)
+            .select_authorizer(&self.authorizers, request.headers(), &token)
             .ok_or(AuthError::AuthorizerNotFound)?;
         match authorizer.validate(&token).await {
             Ok(res) => {

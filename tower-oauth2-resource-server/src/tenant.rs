@@ -44,6 +44,17 @@ impl TenantConfigurationBuilder {
         }
     }
 
+    /// Set an identifier for the tenant.
+    ///
+    /// Can be accessed on a [Authorizer](crate::authorizer::token_authorizer::Authorizer) in
+    /// order to identify what authorization server the authorizer is configured for.
+    ///
+    /// Defaults to `issuer_url`.
+    pub fn identifier(mut self, identifier: &str) -> Self {
+        self.identifier = Some(identifier.to_string());
+        self
+    }
+
     /// Set the issuer_url (what authorization server to use).
     ///
     /// On startup, the OIDC Provider Configuration endpoint of the
@@ -219,14 +230,7 @@ mod tests {
     async fn test_should_perform_oidc_discovery() {
         let _m = MTX.lock();
         let ctx = MockOidcDiscovery::discover_context();
-        ctx.expect()
-            .returning(|_| {
-                Ok(OidcConfig {
-                    jwks_uri: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
-                    claims_supported: None,
-                })
-            })
-            .once();
+        ctx.expect().returning(|_| Ok(default_oidc_config())).once();
 
         let result = TenantConfigurationBuilder::new()
             .issuer_url("http://some-issuer.com")
@@ -248,5 +252,142 @@ mod tests {
             .build()
             .await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_should_use_issuer_as_identifier() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().returning(|_| Ok(default_oidc_config())).once();
+
+        let result = TenantConfigurationBuilder::new()
+            .issuer_url("http://some-issuer.com")
+            .build()
+            .await;
+
+        assert!(result.is_ok());
+        let tenant = result.unwrap();
+        assert_eq!(tenant.identifier, "http://some-issuer.com");
+    }
+
+    #[tokio::test]
+    async fn test_custom_identifier_overrides_issuer() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().returning(|_| Ok(default_oidc_config())).once();
+
+        let result = TenantConfigurationBuilder::new()
+            .issuer_url("http://some-issuer.com")
+            .identifier("custom-identifier")
+            .build()
+            .await;
+
+        assert!(result.is_ok());
+        let tenant = result.unwrap();
+        assert_eq!(tenant.identifier, "custom-identifier");
+    }
+
+    #[tokio::test]
+    async fn test_valid_issuer_url_required() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().never();
+
+        let result = TenantConfigurationBuilder::new()
+            .issuer_url("not-a-url")
+            .build()
+            .await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            StartupError::InvalidParameter("Invalid issuer_url format".to_owned())
+        )
+    }
+
+    #[tokio::test]
+    async fn test_valid_jwks_url_required() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().never();
+
+        let result = TenantConfigurationBuilder::new()
+            .identifier("tenant-1")
+            .jwks_url("not-a-url")
+            .build()
+            .await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            StartupError::InvalidParameter("Invalid jwks_url format".to_owned())
+        )
+    }
+
+    #[tokio::test]
+    async fn test_requires_issuer_or_jwks() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().never();
+
+        let result = TenantConfigurationBuilder::new()
+            .identifier("tenant-1")
+            .build()
+            .await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            StartupError::InvalidParameter(
+                "Either jwks_url or issuer_url must be provided".to_owned()
+            )
+        )
+    }
+
+    #[tokio::test]
+    async fn test_provides_recommended_claims_validation_spec() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().returning(|_| Ok(default_oidc_config())).once();
+
+        let result = TenantConfigurationBuilder::new()
+            .issuer_url("https://some-issuer.com")
+            .audiences(&["https://some-resource-server.com"])
+            .build()
+            .await;
+
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap().claims_validation_spec,
+            ClaimsValidationSpec::new()
+                .exp(true)
+                .iss("https://some-issuer.com")
+                .aud(&vec!["https://some-resource-server.com".to_owned()])
+        );
+    }
+
+    #[tokio::test]
+    async fn test_custom_claims_validation_spec_overrides_recommended() {
+        let _m = MTX.lock();
+        let ctx = MockOidcDiscovery::discover_context();
+        ctx.expect().returning(|_| Ok(default_oidc_config())).once();
+
+        let claims_validation = ClaimsValidationSpec::new().exp(false);
+        let result = TenantConfigurationBuilder::new()
+            .issuer_url("https://some-issuer.com")
+            .audiences(&["https://some-resource-server.com"])
+            .claims_validation(claims_validation.clone())
+            .build()
+            .await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().claims_validation_spec, claims_validation);
+    }
+
+    fn default_oidc_config() -> OidcConfig {
+        OidcConfig {
+            jwks_uri: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
+            claims_supported: None,
+        }
     }
 }

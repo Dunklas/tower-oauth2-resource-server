@@ -48,3 +48,23 @@ impl<Claims> AuthorizerResolver<Claims> for IssuerAuthorizerResolver {
             .find(|authorizer| authorizer.identifier() == issuer)
     }
 }
+
+/// Selects an authorizer based on `kid` of JWTs.
+///
+#[derive(Debug)]
+pub struct KidAuthorizerResolver {}
+
+impl<Claims> AuthorizerResolver<Claims> for KidAuthorizerResolver {
+    fn select_authorizer<'a>(
+        &'a self,
+        authorizers: &'a [Authorizer<Claims>],
+        _headers: &HeaderMap,
+        unverified_jwt: &UnverifiedJwt,
+    ) -> Option<&'a Authorizer<Claims>> {
+        let header = unverified_jwt.header()?;
+        let kid = header.get("kid")?.as_str()?;
+        authorizers
+            .iter()
+            .find(|authorizer| authorizer.has_kid(kid))
+    }
+}

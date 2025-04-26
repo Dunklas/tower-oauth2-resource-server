@@ -62,4 +62,8 @@ impl<Claims> Authorizer<Claims> {
     pub(crate) fn validate(&self, token: &UnverifiedJwt) -> Result<Claims, AuthError> {
         self.jwt_validator.validate(token)
     }
+
+    pub fn has_kid(&self, kid: &str) -> bool {
+        self.jwt_validator.has_kid(kid)
+    }
 }

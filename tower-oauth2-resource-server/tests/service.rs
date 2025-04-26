@@ -119,8 +119,7 @@ async fn default_auth_layer(
 ) -> OAuth2ResourceServerLayer<DefaultClaims> {
     <OAuth2ResourceServer>::builder()
         .add_tenant(
-            TenantConfiguration::builder()
-                .issuer_url(mock_server.uri())
+            TenantConfiguration::builder(mock_server.uri())
                 .audiences(audiences)
                 .build()
                 .await

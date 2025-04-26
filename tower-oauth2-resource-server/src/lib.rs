@@ -22,8 +22,7 @@ pub mod authorizer;
 /// #[tokio::main]
 /// async fn main() {
 ///     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
-///         .add_tenant(TenantConfiguration::builder()
-///             .issuer_url("https://some-auth-server.com")
+///         .add_tenant(TenantConfiguration::builder("https://some-auth-server.com")
 ///             .audiences(&["https://some-resource-server.com"])
 ///             .build().await.expect("Failed to build tenant configuration"))
 ///         .build()
@@ -46,8 +45,7 @@ pub mod authorizer;
 /// #[tokio::main]
 /// async fn main() {
 ///     let oauth2_resource_server = OAuth2ResourceServer::<MyClaims>::builder()
-///         .add_tenant(TenantConfiguration::builder()
-///             .issuer_url("https://some-auth-server.com")
+///         .add_tenant(TenantConfiguration::builder("https://some-auth-server.com")
 ///             .audiences(&["https://some-resource-server.com"])
 ///             .build().await.expect("Failed to build tenant configuration"))
 ///         .build()

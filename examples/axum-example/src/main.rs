@@ -16,15 +16,14 @@ async fn main() {
 
     let oauth2_resource_server = <OAuth2ResourceServer>::builder()
         .add_tenant(
-            TenantConfiguration::builder()
-                .audiences(&["tors-example"])
-                .issuer_url(format!(
-                    "http://{}:{}/realms/tors",
-                    oidc_provider_host, oidc_provider_port
-                ))
-                .build()
-                .await
-                .expect("Failed to build tenant configuration"),
+            TenantConfiguration::builder(format!(
+                "http://{}:{}/realms/tors",
+                oidc_provider_host, oidc_provider_port
+            ))
+            .audiences(&["tors-example"])
+            .build()
+            .await
+            .expect("Failed to build tenant configuration"),
         )
         .build()
         .await

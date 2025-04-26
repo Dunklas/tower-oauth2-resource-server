@@ -169,7 +169,10 @@ mod tests {
         EncodingKey, Header,
     };
     use lazy_static::lazy_static;
-    use rsa::{pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
+    use rsa::{
+        pkcs1::EncodeRsaPrivateKey, pkcs8::DecodePrivateKey, traits::PublicKeyParts, RsaPrivateKey,
+        RsaPublicKey,
+    };
     use serde::Deserialize;
     use serde_json::{json, Value};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -185,11 +188,39 @@ mod tests {
 
     lazy_static! {
         static ref DEFAULT_KID: String = "test-kid".to_owned();
+        static ref PRIVATE_KEY2: &'static str = r#"-----BEGIN PRIVATE KEY-----
+MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCgTP9Gu6kc/131
+eIVtcugkzAb7vlnXy3jOIHLY8dNkfGQc56ntoV42P7Xc2YhwviiiP7afGsuFZuAD
+aIFpav3nAqR/ml5Oxz7lDr4Ha4Jyf3E9JArTxj+M1WG2XLeYA52xPhj2ZAg7+ipq
+oTLO63KlkES77Xw2RsZXCQ2Eb2zG9SMVce8ygmzmLAgtoMDYWG4SKggPM7L5mMPy
+n3bzJ7a/wJ09aXXE/GgFd3Yoh7dGShxEPEt54GDfAfxr21Dlnt86aJeIAjz+U3nv
+Nh/TvzJrO8tSUrMKjWlChHbkxTnV3vOAj8jsfYVvk9kZwKZ+83VSnjU58RDIwsvo
+ljKg/bddAgMBAAECggEAToB2kU6simlau7A6c3eOzRpnnxhAikf4UMWeSLTgx7iN
+FIS0+I0KhLmdl9qmEURmxNI73l3yZlGTice/fH8reVqXcXAJGD5GBEm8cQjK2MSl
+kYIZlU1kaNVEpVhxho3ax2Z4Ng2V5L1l0VNA/Qlb2020A25RYok1b4Ec8ArbM/Ep
+ECxHjMjViHlqFLo25AfqxW0Q/TeNyMdYDWn/l6+qw9OI5OYswGwW1xwjL6ElcqnT
+tDDC/wqorxv+sRrTTyxQ1mUg1K2vm7wjml2PlVgjv7P28O0LjlDspPFChVZ2xbp0
++ohEiNARBabqVt1gs/aYmoN8SZ9NDneCCzFSL/P4lwKBgQDT9QQXMB2lgEMaEIS/
+1z2E1ByL6cN7uiqo4rTDrvnLGL/vBqb3751YV/sJubi6Da1QpAZJQ/ssHNs6T1zh
+nImXkSWG+OravA10driJL8wWcKD3bIQOEc6FFrz+t/tiLf6tx5Ok6+vWL89muiWw
+xouU/msV0ZXHcIoKonB2a7sYqwKBgQDBnCQYhbb8T7U248Cd6jv0gaJn5VHA9mF7
+/Wg0oHgAi/TFGlO/1nktkmHbDE0BH4Y9NM3vOmik5ag4tVGFIQU7MkDx9HKo9GnZ
+Tx2OcwpQ5l/02GMO634y2w/zoS1GoGNqWLYVPsK3kyM+LmzAc29fpOBxxomqA1Pw
+SRuVBouAFwKBgHpL5z5R3uk9ZnpFibL/SFm54XbBPK/JLRAhLtexwCN1dlk+Z1yr
+fwgYS5rC9Fk1xwi+e3oOpYBAbiXo4Ni0b5dqglKskSYAV2sZjURqtcFE3zuj+1X6
+5ERaaFY4Ze2ySD6Q5xnDnmIJWAwX3+Nty9/+JF+EfH2E68FTFLzfUCbdAoGBALzB
+k9dslegLdesbxLCwqt9Ie6O7SSdNjeEqP6v/Pr+Zs3tunXQMj3vEmS7MIU8VAvUt
+RBEV6uvJE2amL+IRPV5nMjYyUo8yKvg4T+KPeeFBmQ/G31yubwz50eV+n/uZZxNJ
+hcvUslXzV4rKDDDc2hpvTnreS1y7fdxoCkISbXLlAoGAQ2W04sNMa6sFI/9rAcFv
+yviLtRw4G2epS0AtGhPsy3cPX8XIiRbkQXrZSSV9FSlZyC0Fr1IS8qTCF9rJMawm
+iiVw58CWKo4qO6HQGC/W5nD3maFnHnnp3mtIgfGsWEyc9tgdhFZuTtHxDPTjm/xU
+kTlUuvwRMeoB7RdcxaYHaQo=
+-----END PRIVATE KEY-----"#;
         static ref PRIVATE_KEY: RsaPrivateKey =
-            RsaPrivateKey::new(&mut rand::thread_rng(), 2048).unwrap();
+            RsaPrivateKey::from_pkcs8_pem(PRIVATE_KEY2.deref()).unwrap();
         static ref PUBLIC_KEY: RsaPublicKey = RsaPublicKey::from(PRIVATE_KEY.deref());
         static ref ENCODING_KEY: EncodingKey =
-            EncodingKey::from_rsa_der(PRIVATE_KEY.to_pkcs1_der().unwrap().as_bytes());
+            EncodingKey::from_rsa_pem(PRIVATE_KEY2.as_bytes()).unwrap();
         static ref CUSTOM_ENGINE: engine::GeneralPurpose =
             engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
     }

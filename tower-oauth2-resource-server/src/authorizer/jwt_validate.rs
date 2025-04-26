@@ -104,6 +104,8 @@ impl OnlyJwtValidator {
         if let Some(aud) = &self.claims_validation.aud {
             required_claims.push("aud");
             validation.set_audience(aud);
+        } else {
+            validation.validate_aud = self.claims_validation.validate_aud;
         }
         validation.set_required_spec_claims(&required_claims);
         validation

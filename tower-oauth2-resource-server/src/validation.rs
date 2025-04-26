@@ -6,11 +6,15 @@ pub struct ClaimsValidationSpec {
     pub exp: bool,
     pub nbf: bool,
     pub aud: Option<Vec<String>>,
+    pub validate_aud: bool,
 }
 
 impl ClaimsValidationSpec {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            validate_aud: true,
+            ..Default::default()
+        }
     }
 
     pub fn recommended(issuer: &str, audiences: &Vec<String>) -> Self {
@@ -34,6 +38,11 @@ impl ClaimsValidationSpec {
 
     pub fn aud(mut self, audiences: &Vec<String>) -> Self {
         self.aud = Some(audiences.to_owned());
+        self
+    }
+
+    pub fn validate_aud(mut self, validate: bool) -> Self {
+        self.validate_aud = validate;
         self
     }
 }

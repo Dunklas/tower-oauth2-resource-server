@@ -9,6 +9,7 @@ pub struct DefaultClaims {
     pub iss: Option<String>,
     pub sub: Option<String>,
     #[serde_as(as = "OneOrMany<_, PreferMany>")]
+    #[serde(default)]
     pub aud: Vec<String>,
     pub jti: Option<String>,
 }

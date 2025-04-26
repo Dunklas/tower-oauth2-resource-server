@@ -19,7 +19,7 @@ struct OpenIdConfig {
 }
 
 #[derive(Serialize)]
-struct Jwks {
+pub struct Jwks {
     keys: Vec<Jwk>,
 }
 
@@ -47,21 +47,26 @@ pub async fn mock_oidc_config(mock_server: &MockServer, issuer: &str) {
         .await;
 }
 
-pub async fn mock_jwks(mock_server: &MockServer, keys: Vec<(String, RsaPublicKey)>) {
+pub fn jwks(keys: &[(String, RsaPublicKey)]) -> Jwks {
     let keys = keys
-        .into_iter()
+        .iter()
         .map(|(kid, pub_key)| Jwk {
             kty: "RSA".to_string(),
             use_: "sig".to_string(),
             alg: "RS256".to_string(),
-            kid,
+            kid: kid.clone(),
             n: CUSTOM_ENGINE.encode(pub_key.n().to_bytes_be()),
             e: CUSTOM_ENGINE.encode(pub_key.e().to_bytes_be()),
         })
         .collect::<Vec<_>>();
+    Jwks { keys }
+}
+
+pub async fn mock_jwks(mock_server: &MockServer, keys: &[(String, RsaPublicKey)]) {
+    let jwks = jwks(keys);
     Mock::given(method("GET"))
         .and(path("/jwks"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(Jwks { keys }))
+        .respond_with(ResponseTemplate::new(200).set_body_json(jwks))
         .mount(mock_server)
         .await;
 }

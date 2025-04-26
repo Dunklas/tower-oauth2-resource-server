@@ -4,7 +4,10 @@ use log::info;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    authorizer::{jwks::TimerJwksProducer, jwt_validate::OnlyJwtValidator},
+    authorizer::{
+        jwks::{JwksConsumer, TimerJwksProducer},
+        jwt_validate::OnlyJwtValidator,
+    },
     error::{AuthError, StartupError},
     jwt_unverified::UnverifiedJwt,
     tenant::TenantConfiguration,
@@ -16,8 +19,6 @@ use super::{jwks::JwksProducer, jwt_validate::JwtValidator};
 pub struct Authorizer<Claims> {
     identifier: String,
     jwt_validator: Arc<dyn JwtValidator<Claims> + Send + Sync>,
-    #[allow(dead_code)]
-    jwks_producer: Arc<dyn JwksProducer + Send + Sync>,
 }
 
 impl<Claims> Authorizer<Claims>
@@ -32,15 +33,23 @@ where
 
         let validator = Arc::new(OnlyJwtValidator::new(config.claims_validation_spec));
 
-        let mut jwks_producer =
-            TimerJwksProducer::new(config.jwks_url, config.jwks_refresh_interval);
-        jwks_producer.add_consumer(validator.clone());
-        jwks_producer.start();
+        match config.kind {
+            crate::tenant::TenantKind::JwksUrl {
+                jwks_url,
+                jwks_refresh_interval,
+            } => {
+                let mut jwks_producer = TimerJwksProducer::new(jwks_url, jwks_refresh_interval);
+                jwks_producer.add_consumer(validator.clone());
+                jwks_producer.start();
+            }
+            crate::tenant::TenantKind::Static { jwks } => {
+                validator.receive_jwks(jwks).await;
+            }
+        };
 
         Ok(Self {
             identifier: config.identifier,
             jwt_validator: validator,
-            jwks_producer: Arc::new(jwks_producer),
         })
     }
 }

@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use jsonwebtoken::jwk::JwkSet;
 use mockall_double::double;
 use url::Url;
 
@@ -9,11 +10,21 @@ use crate::{error::StartupError, oidc::OidcConfig, validation::ClaimsValidationS
 use crate::oidc::OidcDiscovery;
 
 #[derive(Debug, Clone)]
+pub(crate) enum TenantKind {
+    JwksUrl {
+        jwks_url: Url,
+        jwks_refresh_interval: Duration,
+    },
+    Static {
+        jwks: JwkSet,
+    },
+}
+
+#[derive(Debug, Clone)]
 pub struct TenantConfiguration {
     pub(crate) identifier: String,
-    pub(crate) jwks_url: Url,
-    pub(crate) jwks_refresh_interval: Duration,
     pub(crate) claims_validation_spec: ClaimsValidationSpec,
+    pub(crate) kind: TenantKind,
 }
 
 impl TenantConfiguration {
@@ -37,6 +48,13 @@ impl TenantConfiguration {
     /// This will prevent the self-configuration on start up.
     pub fn builder(issuer_url: impl Into<String>) -> TenantConfigurationBuilder {
         TenantConfigurationBuilder::new(issuer_url)
+    }
+
+    /// Build a tenant configuration for a static JWK Set
+    ///
+    /// Format of `jwks` must follow the "JWK Set Format" as defined in  RFC 7517
+    pub fn static_builder(jwks: impl Into<String>) -> TenantStaticConfigurationBuilder {
+        TenantStaticConfigurationBuilder::new(jwks)
     }
 }
 
@@ -160,13 +178,84 @@ impl TenantConfigurationBuilder {
             },
         };
 
-        Ok(TenantConfiguration {
-            identifier,
+        let kind = TenantKind::JwksUrl {
             jwks_url,
             jwks_refresh_interval: self
                 .jwk_set_refresh_interval
                 .unwrap_or(Duration::from_secs(60)),
+        };
+
+        Ok(TenantConfiguration {
+            identifier,
             claims_validation_spec,
+            kind,
+        })
+    }
+}
+
+pub struct TenantStaticConfigurationBuilder {
+    identifier: Option<String>,
+    audiences: Vec<String>,
+    claims_validation_spec: Option<ClaimsValidationSpec>,
+    jwks: String,
+}
+
+impl TenantStaticConfigurationBuilder {
+    fn new(jwks: impl Into<String>) -> Self {
+        Self {
+            jwks: jwks.into(),
+            identifier: None,
+            audiences: Vec::new(),
+            claims_validation_spec: None,
+        }
+    }
+
+    /// Set an identifier for the tenant.
+    ///
+    /// Can be accessed on a [Authorizer](crate::authorizer::token_authorizer::Authorizer) in
+    /// order to identify what authorization server the authorizer is configured for.
+    ///
+    /// Used to validate the the iss
+    ///
+    /// Defaults to `static`.
+    pub fn identifier(mut self, identifier: &str) -> Self {
+        self.identifier = Some(identifier.to_string());
+        self
+    }
+
+    /// Set the expected audiences.
+    ///
+    /// Used to validate `aud` claim of JWTs.
+    pub fn audiences(mut self, audiences: &[impl ToString]) -> Self {
+        self.audiences = audiences.iter().map(|aud| aud.to_string()).collect();
+        self
+    }
+
+    /// Set what claims of JWTs to validate.
+    ///
+    /// By default, `iss`, `exp`, `aud` and possibly `nbf` will be validated.
+    pub fn claims_validation(mut self, claims_validation: ClaimsValidationSpec) -> Self {
+        self.claims_validation_spec = Some(claims_validation);
+        self
+    }
+
+    /// Construct a TenantConfiguration.
+    pub fn build(self) -> Result<TenantConfiguration, StartupError> {
+        let identifier = self.identifier.unwrap_or_else(|| String::from("static"));
+
+        let claims_validation_spec = self
+            .claims_validation_spec
+            .unwrap_or(recommended_claims_spec(&self.audiences, None, &None));
+
+        let jwks = serde_json::from_str(&self.jwks)
+            .map_err(|e| StartupError::InvalidParameter(format!("Failed to parse JWKS: {e}")))?;
+
+        let kind = TenantKind::Static { jwks };
+
+        Ok(TenantConfiguration {
+            identifier,
+            claims_validation_spec,
+            kind,
         })
     }
 }
@@ -178,7 +267,7 @@ fn recommended_claims_spec(
 ) -> ClaimsValidationSpec {
     let mut claims_spec = ClaimsValidationSpec::new().aud(audiences).exp(true);
     if let Some(issuer_uri) = &issuer_url {
-        claims_spec = claims_spec.iss(&issuer_uri.to_string());
+        claims_spec = claims_spec.iss(issuer_uri);
     }
     if let Some(config) = &oidc_config {
         if let Some(claims_supported) = &config.claims_supported {
@@ -192,6 +281,12 @@ fn recommended_claims_spec(
 
 #[cfg(test)]
 mod tests {
+    use base64::{
+        engine::{general_purpose, GeneralPurpose},
+        Engine,
+    };
+    use rsa::traits::PublicKeyParts;
+
     use super::*;
     use crate::oidc::{MockOidcDiscovery, OidcConfig};
     use std::sync::Mutex;
@@ -324,6 +419,71 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap().claims_validation_spec, claims_validation);
+    }
+
+    #[test]
+    fn test_static_build() {
+        let jwks = mock_jwks();
+        let t = TenantStaticConfigurationBuilder::new(jwks).build().unwrap();
+
+        assert_eq!(t.identifier, "static");
+        assert!(matches!(t.kind, TenantKind::Static { .. }));
+    }
+
+    #[test]
+    fn test_static_build_invalid_jwks() {
+        let jwks = " {}";
+        let e = TenantStaticConfigurationBuilder::new(jwks)
+            .build()
+            .unwrap_err();
+        assert!(matches!(e, StartupError::InvalidParameter { .. }))
+    }
+
+    #[test]
+    fn test_static_build_custom_identifier() {
+        let jwks = mock_jwks();
+        let t = TenantStaticConfigurationBuilder::new(jwks)
+            .identifier("custom")
+            .build()
+            .unwrap();
+
+        assert_eq!(t.identifier, "custom");
+        assert!(matches!(t.kind, TenantKind::Static { .. }));
+    }
+
+    #[test]
+    fn test_static_provides_recommended_claims_validation_spec() {
+        let jwks = mock_jwks();
+        let t = TenantStaticConfigurationBuilder::new(jwks)
+            .audiences(&["https://some-resource-server.com"])
+            .build()
+            .unwrap();
+
+        assert_eq!(
+            t.claims_validation_spec,
+            ClaimsValidationSpec::new()
+                .exp(true)
+                .aud(&vec!["https://some-resource-server.com".to_owned()])
+        );
+    }
+
+    /// Create a mock jwks
+    fn mock_jwks() -> String {
+        let private = rsa::RsaPrivateKey::new(&mut rand::thread_rng(), 2048).unwrap();
+        let public = rsa::RsaPublicKey::from(private);
+        let base64_engine =
+            GeneralPurpose::new(&base64::alphabet::URL_SAFE, general_purpose::NO_PAD);
+        let n = base64_engine.encode(public.n().to_bytes_be());
+        let e = base64_engine.encode(public.e().to_bytes_be());
+        serde_json::json!({
+            "keys": [{
+                "kty": "RSA",
+                "kid": "test-kid",
+                "n": n,
+                "e": e
+            }]
+        })
+        .to_string()
     }
 
     fn default_oidc_config() -> OidcConfig {

@@ -157,11 +157,6 @@ fn parse_key_alg(key_alg: KeyAlgorithm) -> Option<Algorithm> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use base64::{
-        alphabet,
-        engine::{self, general_purpose},
-        Engine,
-    };
     use jsonwebtoken::{
         encode,
         errors::ErrorKind,
@@ -169,10 +164,6 @@ mod tests {
         EncodingKey, Header,
     };
     use lazy_static::lazy_static;
-    use rsa::{
-        pkcs1::EncodeRsaPrivateKey, pkcs8::DecodePrivateKey, traits::PublicKeyParts, RsaPrivateKey,
-        RsaPublicKey,
-    };
     use serde::Deserialize;
     use serde_json::{json, Value};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -188,7 +179,7 @@ mod tests {
 
     lazy_static! {
         static ref DEFAULT_KID: String = "test-kid".to_owned();
-        static ref PRIVATE_KEY2: &'static str = r#"-----BEGIN PRIVATE KEY-----
+        static ref TEST_RSA_PRIVATE: &'static str = r#"-----BEGIN PRIVATE KEY-----
 MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCgTP9Gu6kc/131
 eIVtcugkzAb7vlnXy3jOIHLY8dNkfGQc56ntoV42P7Xc2YhwviiiP7afGsuFZuAD
 aIFpav3nAqR/ml5Oxz7lDr4Ha4Jyf3E9JArTxj+M1WG2XLeYA52xPhj2ZAg7+ipq
@@ -216,13 +207,10 @@ yviLtRw4G2epS0AtGhPsy3cPX8XIiRbkQXrZSSV9FSlZyC0Fr1IS8qTCF9rJMawm
 iiVw58CWKo4qO6HQGC/W5nD3maFnHnnp3mtIgfGsWEyc9tgdhFZuTtHxDPTjm/xU
 kTlUuvwRMeoB7RdcxaYHaQo=
 -----END PRIVATE KEY-----"#;
-        static ref PRIVATE_KEY: RsaPrivateKey =
-            RsaPrivateKey::from_pkcs8_pem(PRIVATE_KEY2.deref()).unwrap();
-        static ref PUBLIC_KEY: RsaPublicKey = RsaPublicKey::from(PRIVATE_KEY.deref());
+        static ref TEST_RSA_MODULUS: &'static str = "oEz_RrupHP9d9XiFbXLoJMwG-75Z18t4ziBy2PHTZHxkHOep7aFeNj-13NmIcL4ooj-2nxrLhWbgA2iBaWr95wKkf5peTsc-5Q6-B2uCcn9xPSQK08Y_jNVhtly3mAOdsT4Y9mQIO_oqaqEyzutypZBEu-18NkbGVwkNhG9sxvUjFXHvMoJs5iwILaDA2FhuEioIDzOy-ZjD8p928ye2v8CdPWl1xPxoBXd2KIe3RkocRDxLeeBg3wH8a9tQ5Z7fOmiXiAI8_lN57zYf078yazvLUlKzCo1pQoR25MU51d7zgI_I7H2Fb5PZGcCmfvN1Up41OfEQyMLL6JYyoP23XQ";
+        static ref TEST_RSA_EXPONENT: &'static str = "AQAB";
         static ref ENCODING_KEY: EncodingKey =
-            EncodingKey::from_rsa_pem(PRIVATE_KEY2.as_bytes()).unwrap();
-        static ref CUSTOM_ENGINE: engine::GeneralPurpose =
-            engine::GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
+            EncodingKey::from_rsa_pem(TEST_RSA_PRIVATE.as_bytes()).unwrap();
     }
 
     #[tokio::test]
@@ -259,13 +247,36 @@ kTlUuvwRMeoB7RdcxaYHaQo=
     #[tokio::test]
     async fn invalid_key() {
         let validator = create_validator(ClaimsValidationSpec::new()).await;
-        let another_encoding_key = EncodingKey::from_rsa_der(
-            RsaPrivateKey::new(&mut rand::thread_rng(), 2048)
-                .unwrap()
-                .to_pkcs1_der()
-                .unwrap()
-                .as_bytes(),
-        );
+        let another_rsa_private_key = r#"-----BEGIN PRIVATE KEY-----
+MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDcjka/kUq76+c3
+J5XklEl2lEgjV5jsbTY39tnlYYH6d5/LZG3i90lKBLi+xuyLBPQzMIS5GigOMev1
++JNmcsry5m5Okd65uypi86RyOIGZ/sFOyUElkrGHUoBTZqD8xDQJu8q65vOyz8XK
+zs5+bALmLp3v0/QapXMHU7MjUxyTY+OJEKKQE5buaHkrrkNwlDgkiWZNrD3jGpbe
+NMvplhx0/+PM07RngrtHnv63c0jdS0lXQBTvmtOb6SxKBz9kvXx3KDkROgIWoQJV
+eXelnA2ZM1zwVWi7bbKHbMtI6S0ngPlugVYxETgN95YObdqNfRyF39uIYH3/KGXR
++ZAivkQDAgMBAAECggEAGCIyB/c61r+e9XA4R3fvEUceHPk9AK3d72zBoLG1OnYe
+1ETWfgMyD/kz9Ugot6OLTGikNT7xSsWtUfppDUjv/86Kxmp8FRWvsyksLDAWWlvq
+b20NMF0nXi0ptovgf21sBklNYHsyB7W9fmN3wT9KEpbfmE+4gmE/6iQp/L+055mj
+6kLVxiNWHxLRg+L39imtxrnVFgYFYCoPZWb8CkdXFH6yFe9nnjKUGTzMdJh55Jdg
+Z6smOmd9Hl9uAJFjFg1EAXHC0Xo+BBEGVITE8ExXVY4oDtttyzYEJl1hgsEOSHTi
+3yHOQDnJtcrtS+Q3TTHgsAFjOvF7XhFFJBJdHEOLmQKBgQD9N9eApP6yM4o2f9xd
+95C1xbmMUlghnh1KXrOBFg2VnC8NK4z39oxhp9dntBcvcvTcdfr8U2l/GJbKGFZu
+cO6IQgpfbSIm/jcqffsG6R7W1U7kS7Hx5dAZKZwWCsbYhEIQij3nMC/9uC/w0Nj+
+x+mZtvTfpOJ7cyAlVeVyhI+TWwKBgQDe+pLuTJgYF2gnmTKgfhb8Jz5JHcqpsED+
+MdjhcmDMoatpXTMYFOaVpt0Pxeg/AOX7J5+w1SdhnojEzi3YQsdguruJ+ij/T/iF
+mk2YLL640AlHQPTz24fPY3XiLSawwdtskigNE0l1OpKctYo5r5RcKza3Q6gNPKha
+L/OKTa06eQKBgFJj9Q66oNTCyFnrSHyarM84QqNRt7NYixdDsQxzbIAdjYGvhfK4
+mfy8a+4mPtUFhn6lNMEdMtpT2dxwBs9wl2xmcJGUJOSjGrgMvb0F5S7pwP2vU3rt
+18QYMd1KLGEOx6AyGuo6V6MqZw7oJXLhATUuvoZ2U+rvDqqXREz6rOy5AoGAb9I1
+kS/0LlC+uO0JCJdzK2z6vWwlUEfFsDSLUTQs+zIwZhyJHRCOOop93gUf3Ui0DOno
+GaQrpbb9W8USFJwYpJfAqQc9PBx8w3OIakI2OzSJEqSuswRq7UQxwAVom8f8JEx/
+rV74vcNr9w7LjPZSbo51WB6jzk+XFfNqLPebYfECgYAf5SEOuZgwmdUrF/UGuyFb
+YjtcKqsWL5tG7HIxmvRjvjuwEGo2tcCCUKK+9rz+RUBVX+Bd7WJwr+z4L7dHd1tH
+y3Hu3pMgFhRj5cqxonKfp5Rtulf0IgvxH7lcfeoQS/qoNrqLbGOgit1yTuKxrGK6
+ScHBAP/qVF3+Qfg9iKDMkg==
+-----END PRIVATE KEY-----"#;
+        let another_encoding_key =
+            EncodingKey::from_rsa_pem(another_rsa_private_key.as_bytes()).unwrap();
         let mut header = Header::new(jsonwebtoken::Algorithm::RS256);
         header.kid = Some(DEFAULT_KID.to_owned());
         let token = encode(&header, &serde_json::json!({}), &another_encoding_key).unwrap();
@@ -447,8 +458,8 @@ kTlUuvwRMeoB7RdcxaYHaQo=
             "use_": "sig",
             "alg": "RS256",
             "kid": DEFAULT_KID.to_owned(),
-            "n": CUSTOM_ENGINE.encode(PUBLIC_KEY.n().to_bytes_be()),
-            "e": CUSTOM_ENGINE.encode(PUBLIC_KEY.e().to_bytes_be())
+            "n": TEST_RSA_MODULUS.to_string(),
+            "e": TEST_RSA_EXPONENT.to_string(),
         }))
         .unwrap();
         validator.receive_jwks(JwkSet { keys: vec![jwk] }).await;

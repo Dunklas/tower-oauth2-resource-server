@@ -67,7 +67,7 @@ async fn unauthorized_on_token_validation_failure() {
         .service_fn(echo);
 
     let token = jwt_from(
-        &DEFAULT_RSA_PRIVATE_KEY,
+        DEFAULT_RSA_PRIVATE_KEY,
         "good_key",
         serde_json::json!({
             "iss": "https://auth-server.com",

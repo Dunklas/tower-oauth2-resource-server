@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 use jsonwebtoken::{
@@ -25,10 +22,15 @@ pub trait JwtValidator<Claims> {
     fn validate(&self, jwt: &UnverifiedJwt) -> Result<Claims, AuthError>;
 }
 
+#[derive(Default)]
+struct OnlyJwtValidatorInner {
+    decoding_keys: HashMap<String, DecodingKey>,
+    validations: HashMap<Algorithm, Validation>,
+}
+
 pub struct OnlyJwtValidator {
     claims_validation: ClaimsValidationSpec,
-    decoding_keys: Arc<RwLock<HashMap<String, DecodingKey>>>,
-    validations: Arc<RwLock<HashMap<Algorithm, Validation>>>,
+    inner: RwLock<OnlyJwtValidatorInner>,
 }
 
 impl<Claims> JwtValidator<Claims> for OnlyJwtValidator
@@ -39,10 +41,14 @@ where
         let header = decode_header(token.as_str()).or(Err(AuthError::ParseJwtError))?;
         let key_id = header.kid.ok_or(AuthError::ParseJwtError)?;
 
-        let decoding_keys = self.decoding_keys.read().unwrap();
-        let decoding_key = decoding_keys.get(&key_id).ok_or(AuthError::InvalidKeyId)?;
-        let validations = self.validations.read().unwrap();
-        let validation = validations
+        let inner = self.inner.read().unwrap();
+
+        let decoding_key = inner
+            .decoding_keys
+            .get(&key_id)
+            .ok_or(AuthError::InvalidKeyId)?;
+        let validation = inner
+            .validations
             .get(&header.alg)
             .ok_or(AuthError::UnsupportedAlgorithm(header.alg))?;
 
@@ -58,8 +64,10 @@ where
 #[async_trait]
 impl JwksConsumer for OnlyJwtValidator {
     async fn receive_jwks(&self, jwks: JwkSet) {
-        self.update_decoding_keys(&jwks).await;
-        self.update_validations(&jwks).await;
+        let mut inner = self.inner.write().unwrap();
+        if inner.update_decoding_keys(&jwks).is_ok() {
+            inner.update_validations(&jwks, &self.claims_validation);
+        }
     }
 }
 
@@ -67,51 +75,55 @@ impl OnlyJwtValidator {
     pub fn new(claims_validation: ClaimsValidationSpec) -> Self {
         Self {
             claims_validation,
-            decoding_keys: Arc::new(RwLock::new(HashMap::new())),
-            validations: Arc::new(RwLock::new(HashMap::new())),
+            inner: Default::default(),
         }
     }
+}
 
-    async fn update_validations(&self, jwks: &JwkSet) {
+impl OnlyJwtValidatorInner {
+    fn update_validations(&mut self, jwks: &JwkSet, claims_validation: &ClaimsValidationSpec) {
         let algs = jwks
             .keys
             .iter()
             .filter_map(|jwk| jwk.common.key_algorithm)
             .filter_map(parse_key_alg)
             .collect::<HashSet<_>>();
-        let mut validations = self.validations.write().unwrap();
-        *validations = algs
+        self.validations = algs
             .into_iter()
-            .map(|alg| (alg, self.create_validation(&alg)))
+            .map(|alg| (alg, self.create_validation(&alg, claims_validation)))
             .collect();
     }
 
-    fn create_validation(&self, alg: &Algorithm) -> Validation {
+    fn create_validation(
+        &self,
+        alg: &Algorithm,
+        claims_validation: &ClaimsValidationSpec,
+    ) -> Validation {
         let mut validation = Validation::new(*alg);
         let mut required_claims = Vec::<&'static str>::new();
-        if let Some(iss) = &self.claims_validation.iss {
+        if let Some(iss) = &claims_validation.iss {
             required_claims.push("iss");
             validation.set_issuer(&[iss]);
         }
-        if self.claims_validation.exp {
+        if claims_validation.exp {
             required_claims.push("exp");
             validation.validate_exp = true;
         }
-        if self.claims_validation.nbf {
+        if claims_validation.nbf {
             required_claims.push("nbf");
             validation.validate_nbf = true;
         }
-        if let Some(aud) = &self.claims_validation.aud {
+        if let Some(aud) = &claims_validation.aud {
             required_claims.push("aud");
             validation.set_audience(aud);
         } else {
-            validation.validate_aud = self.claims_validation.validate_aud;
+            validation.validate_aud = claims_validation.validate_aud;
         }
         validation.set_required_spec_claims(&required_claims);
         validation
     }
 
-    async fn update_decoding_keys(&self, jwks: &JwkSet) {
+    fn update_decoding_keys(&mut self, jwks: &JwkSet) -> Result<(), JwkError> {
         let decoding_keys = jwks
             .keys
             .iter()
@@ -119,12 +131,13 @@ impl OnlyJwtValidator {
             .collect::<Result<HashMap<_, _>, _>>();
         match decoding_keys {
             Ok(decoding_keys) => {
-                let mut keys = self.decoding_keys.write().unwrap();
-                *keys = decoding_keys;
+                self.decoding_keys = decoding_keys;
                 info!("Successfully updated JWK set");
+                Ok(())
             }
             Err(e) => {
                 warn!("Unable to parse at least one JWK due to: {:?}", e);
+                Err(e)
             }
         }
     }

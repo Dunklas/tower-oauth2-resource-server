@@ -119,9 +119,9 @@ impl OnlyJwtValidatorInner {
             required_claims.push("nbf");
             validation.validate_nbf = true;
         }
-        if let Some(aud) = &claims_validation.aud {
+        if !claims_validation.aud.is_empty() {
             required_claims.push("aud");
-            validation.set_audience(aud);
+            validation.set_audience(&claims_validation.aud);
         } else {
             validation.validate_aud = claims_validation.validate_aud;
         }

@@ -20,6 +20,7 @@ use super::jwks::JwksConsumer;
 
 pub trait JwtValidator<Claims> {
     fn validate(&self, jwt: &UnverifiedJwt) -> Result<Claims, AuthError>;
+    fn has_kid(&self, kid: &str) -> bool;
 }
 
 #[derive(Default)]
@@ -58,6 +59,11 @@ where
                 reason: e.into_kind(),
             }),
         }
+    }
+
+    fn has_kid(&self, kid: &str) -> bool {
+        let inner = self.inner.read().unwrap();
+        inner.decoding_keys.contains_key(kid)
     }
 }
 

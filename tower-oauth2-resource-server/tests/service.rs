@@ -1,4 +1,7 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use bytes::Bytes;
 use common::{jwt_from, mock_jwks, mock_oidc_config, rsa_key_pair};
@@ -8,8 +11,8 @@ use tokio::time::sleep;
 use tower::{BoxError, Service, ServiceBuilder, ServiceExt};
 
 use tower_oauth2_resource_server::{
-    claims::DefaultClaims, layer::OAuth2ResourceServerLayer, server::OAuth2ResourceServer,
-    tenant::TenantConfiguration,
+    auth_resolver::KidAuthorizerResolver, claims::DefaultClaims, layer::OAuth2ResourceServerLayer,
+    server::OAuth2ResourceServer, tenant::TenantConfiguration, validation::ClaimsValidationSpec,
 };
 use wiremock::MockServer;
 
@@ -202,6 +205,73 @@ async fn ok_mixed() {
         serde_json::json!({
             "iss": "static",
             "aud": ["https://some-resource-server.com"],
+            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10
+        }),
+    );
+    let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
+
+    let response = service.ready().await.unwrap().call(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK, "Static request failed");
+}
+
+#[tokio::test]
+async fn ok_mixed_kid() {
+    let (static_private_key, static_public_key) = rsa_key_pair();
+    let jwks = common::jwks(&[("good_static".to_string(), static_public_key)]);
+
+    let (oidc_private_key, oidc_public_key) = rsa_key_pair();
+    let mock_server = MockServer::start().await;
+    mock_oidc_config(&mock_server, "https://auth-server.com").await;
+    mock_jwks(&mock_server, &[("good_oidc".to_owned(), oidc_public_key)]).await;
+
+    let layer = <OAuth2ResourceServer>::builder()
+        .add_tenant(
+            TenantConfiguration::static_builder(serde_json::to_string(&jwks).unwrap())
+                .claims_validation(ClaimsValidationSpec::new().exp(true))
+                .build()
+                .unwrap(),
+        )
+        .add_tenant(
+            TenantConfiguration::builder(mock_server.uri())
+                .audiences(&["https://some-resource-server.com"])
+                .claims_validation(
+                    ClaimsValidationSpec::new()
+                        .aud(&vec!["https://some-resource-server.com".to_string()])
+                        .exp(true),
+                )
+                .build()
+                .await
+                .unwrap(),
+        )
+        .auth_resolver(Arc::new(KidAuthorizerResolver {}))
+        .build()
+        .await
+        .expect("Failed to build OAuth2ResourceServer")
+        .into_layer();
+
+    let mut service = ServiceBuilder::new().layer(layer).service_fn(echo);
+    // Needed for initial jwks fetch
+    sleep(Duration::from_millis(100)).await;
+
+    let token = jwt_from(
+        &oidc_private_key,
+        "good_oidc",
+        serde_json::json!({
+            "sub": "Some dude",
+            "aud": ["https://some-resource-server.com"],
+            "nbf": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 10,
+            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10
+        }),
+    );
+    let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
+
+    let response = service.ready().await.unwrap().call(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK, "OIDC request failed");
+
+    let token = jwt_from(
+        &static_private_key,
+        "good_static",
+        serde_json::json!({
             "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10
         }),
     );

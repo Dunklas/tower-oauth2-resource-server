@@ -5,7 +5,7 @@ pub struct ClaimsValidationSpec {
     pub iss: Option<String>,
     pub exp: bool,
     pub nbf: bool,
-    pub aud: Option<Vec<String>>,
+    pub aud: Vec<String>,
     pub validate_aud: bool,
 }
 
@@ -37,7 +37,7 @@ impl ClaimsValidationSpec {
     }
 
     pub fn aud(mut self, audiences: &Vec<String>) -> Self {
-        self.aud = Some(audiences.to_owned());
+        self.aud = audiences.to_owned();
         self
     }
 

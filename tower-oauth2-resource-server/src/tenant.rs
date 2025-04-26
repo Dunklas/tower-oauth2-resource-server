@@ -10,52 +10,14 @@ use crate::oidc::OidcDiscovery;
 
 #[derive(Debug, Clone)]
 pub struct TenantConfiguration {
-    pub identifier: String,
-    pub jwks_url: Url,
-    pub audiences: Vec<String>,
-    pub jwks_refresh_interval: Duration,
-    pub claims_validation_spec: ClaimsValidationSpec,
+    pub(crate) identifier: String,
+    pub(crate) jwks_url: Url,
+    pub(crate) jwks_refresh_interval: Duration,
+    pub(crate) claims_validation_spec: ClaimsValidationSpec,
 }
 
 impl TenantConfiguration {
-    pub fn builder() -> TenantConfigurationBuilder {
-        TenantConfigurationBuilder::new()
-    }
-}
-
-pub struct TenantConfigurationBuilder {
-    identifier: Option<String>,
-    issuer_url: Option<String>,
-    jwks_url: Option<String>,
-    audiences: Vec<String>,
-    jwk_set_refresh_interval: Option<Duration>,
-    claims_validation_spec: Option<ClaimsValidationSpec>,
-}
-
-impl TenantConfigurationBuilder {
-    fn new() -> Self {
-        TenantConfigurationBuilder {
-            identifier: None,
-            issuer_url: None,
-            jwks_url: None,
-            audiences: Vec::new(),
-            jwk_set_refresh_interval: None,
-            claims_validation_spec: None,
-        }
-    }
-
-    /// Set an identifier for the tenant.
-    ///
-    /// Can be accessed on a [Authorizer](crate::authorizer::token_authorizer::Authorizer) in
-    /// order to identify what authorization server the authorizer is configured for.
-    ///
-    /// Defaults to `issuer_url`.
-    pub fn identifier(mut self, identifier: &str) -> Self {
-        self.identifier = Some(identifier.to_string());
-        self
-    }
-
-    /// Set the issuer_url (what authorization server to use).
+    /// Build a tenant configuration for issuer_url (what authorization server to use).
     ///
     /// On startup, the OIDC Provider Configuration endpoint of the
     /// authorization server will be queried in order to
@@ -73,11 +35,40 @@ impl TenantConfigurationBuilder {
     /// In cases where the middleware must be able to start independently from
     /// the authorization server, the `jwks_url` property can be set.
     /// This will prevent the self-configuration on start up.
+    pub fn builder(issuer_url: impl Into<String>) -> TenantConfigurationBuilder {
+        TenantConfigurationBuilder::new(issuer_url)
+    }
+}
+
+pub struct TenantConfigurationBuilder {
+    issuer_url: String,
+    identifier: Option<String>,
+    jwks_url: Option<String>,
+    audiences: Vec<String>,
+    jwk_set_refresh_interval: Option<Duration>,
+    claims_validation_spec: Option<ClaimsValidationSpec>,
+}
+
+impl TenantConfigurationBuilder {
+    fn new(issuer_url: impl Into<String>) -> Self {
+        Self {
+            issuer_url: issuer_url.into(),
+            identifier: None,
+            jwks_url: None,
+            audiences: Vec::new(),
+            jwk_set_refresh_interval: None,
+            claims_validation_spec: None,
+        }
+    }
+
+    /// Set an identifier for the tenant.
     ///
-    /// **Note** that it's still required to provide `issuer_url`
-    /// because it's used to validate `iss` claim of JWTs.
-    pub fn issuer_url(mut self, issuer_url: impl Into<String>) -> Self {
-        self.issuer_url = Some(issuer_url.into());
+    /// Can be accessed on a [Authorizer](crate::authorizer::token_authorizer::Authorizer) in
+    /// order to identify what authorization server the authorizer is configured for.
+    ///
+    /// Defaults to `issuer_url`.
+    pub fn identifier(mut self, identifier: &str) -> Self {
+        self.identifier = Some(identifier.to_string());
         self
     }
 
@@ -123,25 +114,11 @@ impl TenantConfigurationBuilder {
     pub async fn build(self) -> Result<TenantConfiguration, StartupError> {
         let identifier = match self.identifier {
             Some(id) => id,
-            None => match &self.issuer_url {
-                Some(issuer) => issuer.clone(),
-                None => {
-                    return Err(StartupError::InvalidParameter(
-                        "Missing tenant identifier".to_owned(),
-                    ))
-                }
-            },
+            None => self.issuer_url.clone(),
         };
 
-        let issuer_url = self
-            .issuer_url
-            .as_deref()
-            .map(|issuer_url| {
-                Url::parse(issuer_url).map_err(|_| {
-                    StartupError::InvalidParameter("Invalid issuer_url format".to_string())
-                })
-            })
-            .transpose()?;
+        let issuer_url = Url::parse(&self.issuer_url)
+            .map_err(|_| StartupError::InvalidParameter("Invalid issuer_url format".to_string()))?;
 
         let jwks_url = self
             .jwks_url
@@ -155,23 +132,19 @@ impl TenantConfigurationBuilder {
 
         let oidc_config = if jwks_url.is_some() {
             None
-        } else if let Some(issuer_url) = &issuer_url {
+        } else {
             Some(
-                OidcDiscovery::discover(issuer_url)
+                OidcDiscovery::discover(&issuer_url)
                     .await
                     .map_err(|e| StartupError::OidcDiscoveryFailed(e.to_string()))?,
             )
-        } else {
-            return Err(StartupError::InvalidParameter(
-                "Either jwks_url or issuer_url must be provided".to_string(),
-            ));
         };
 
         let claims_validation_spec =
             self.claims_validation_spec
                 .unwrap_or(recommended_claims_spec(
                     &self.audiences,
-                    &self.issuer_url,
+                    Some(&self.issuer_url),
                     &oidc_config,
                 ));
 
@@ -190,7 +163,6 @@ impl TenantConfigurationBuilder {
         Ok(TenantConfiguration {
             identifier,
             jwks_url,
-            audiences: self.audiences,
             jwks_refresh_interval: self
                 .jwk_set_refresh_interval
                 .unwrap_or(Duration::from_secs(60)),
@@ -201,7 +173,7 @@ impl TenantConfigurationBuilder {
 
 fn recommended_claims_spec(
     audiences: &Vec<String>,
-    issuer_url: &Option<String>,
+    issuer_url: Option<&String>,
     oidc_config: &Option<OidcConfig>,
 ) -> ClaimsValidationSpec {
     let mut claims_spec = ClaimsValidationSpec::new().aud(audiences).exp(true);
@@ -232,8 +204,7 @@ mod tests {
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().returning(|_| Ok(default_oidc_config())).once();
 
-        let result = TenantConfigurationBuilder::new()
-            .issuer_url("http://some-issuer.com")
+        let result = TenantConfigurationBuilder::new("http://some-issuer.com")
             .build()
             .await;
 
@@ -246,8 +217,7 @@ mod tests {
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().never();
 
-        let result = TenantConfigurationBuilder::new()
-            .issuer_url("http://some-issuer.com")
+        let result = TenantConfigurationBuilder::new("http://some-issuer.com")
             .jwks_url("https://some-issuer.com/jwks")
             .build()
             .await;
@@ -260,8 +230,7 @@ mod tests {
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().returning(|_| Ok(default_oidc_config())).once();
 
-        let result = TenantConfigurationBuilder::new()
-            .issuer_url("http://some-issuer.com")
+        let result = TenantConfigurationBuilder::new("http://some-issuer.com")
             .build()
             .await;
 
@@ -276,8 +245,7 @@ mod tests {
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().returning(|_| Ok(default_oidc_config())).once();
 
-        let result = TenantConfigurationBuilder::new()
-            .issuer_url("http://some-issuer.com")
+        let result = TenantConfigurationBuilder::new("http://some-issuer.com")
             .identifier("custom-identifier")
             .build()
             .await;
@@ -293,10 +261,7 @@ mod tests {
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().never();
 
-        let result = TenantConfigurationBuilder::new()
-            .issuer_url("not-a-url")
-            .build()
-            .await;
+        let result = TenantConfigurationBuilder::new("not-a-url").build().await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -311,8 +276,7 @@ mod tests {
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().never();
 
-        let result = TenantConfigurationBuilder::new()
-            .identifier("tenant-1")
+        let result = TenantConfigurationBuilder::new("https://some-issuer.com")
             .jwks_url("not-a-url")
             .build()
             .await;
@@ -325,33 +289,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_requires_issuer_or_jwks() {
-        let _m = MTX.lock();
-        let ctx = MockOidcDiscovery::discover_context();
-        ctx.expect().never();
-
-        let result = TenantConfigurationBuilder::new()
-            .identifier("tenant-1")
-            .build()
-            .await;
-
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            StartupError::InvalidParameter(
-                "Either jwks_url or issuer_url must be provided".to_owned()
-            )
-        )
-    }
-
-    #[tokio::test]
     async fn test_provides_recommended_claims_validation_spec() {
         let _m = MTX.lock();
         let ctx = MockOidcDiscovery::discover_context();
         ctx.expect().returning(|_| Ok(default_oidc_config())).once();
 
-        let result = TenantConfigurationBuilder::new()
-            .issuer_url("https://some-issuer.com")
+        let result = TenantConfigurationBuilder::new("https://some-issuer.com")
             .audiences(&["https://some-resource-server.com"])
             .build()
             .await;
@@ -373,8 +316,7 @@ mod tests {
         ctx.expect().returning(|_| Ok(default_oidc_config())).once();
 
         let claims_validation = ClaimsValidationSpec::new().exp(false);
-        let result = TenantConfigurationBuilder::new()
-            .issuer_url("https://some-issuer.com")
+        let result = TenantConfigurationBuilder::new("https://some-issuer.com")
             .audiences(&["https://some-resource-server.com"])
             .claims_validation(claims_validation.clone())
             .build()

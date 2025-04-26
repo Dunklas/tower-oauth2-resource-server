@@ -83,13 +83,7 @@ async fn fetch_jwks(jwks_url: Url) -> Result<JwkSet, JwkError> {
 mod tests {
     use std::time::Instant;
 
-    use base64::{
-        alphabet,
-        engine::{general_purpose, GeneralPurpose},
-        Engine,
-    };
     use jsonwebtoken::jwk::Jwk;
-    use rsa::{traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
     use serde_json::json;
     use tokio::sync::RwLock;
     use wiremock::{
@@ -149,16 +143,13 @@ mod tests {
     }
 
     async fn mock_jwks(server: &MockServer, jwks_path: &str) {
-        let private = RsaPrivateKey::new(&mut rand::thread_rng(), 2048).unwrap();
-        let public = RsaPublicKey::from(private);
-        let base64_engine = GeneralPurpose::new(&alphabet::URL_SAFE, general_purpose::NO_PAD);
         let jwk: Jwk = serde_json::from_value(json!({
             "kty": "RSA",
             "use_": "sig",
             "alg": "RS256",
             "kid": "test-kid",
-            "n": base64_engine.encode(public.n().to_bytes_be()),
-            "e": base64_engine.encode(public.e().to_bytes_be())
+            "n": "oEz_RrupHP9d9XiFbXLoJMwG-75Z18t4ziBy2PHTZHxkHOep7aFeNj-13NmIcL4ooj-2nxrLhWbgA2iBaWr95wKkf5peTsc-5Q6-B2uCcn9xPSQK08Y_jNVhtly3mAOdsT4Y9mQIO_oqaqEyzutypZBEu-18NkbGVwkNhG9sxvUjFXHvMoJs5iwILaDA2FhuEioIDzOy-ZjD8p928ye2v8CdPWl1xPxoBXd2KIe3RkocRDxLeeBg3wH8a9tQ5Z7fOmiXiAI8_lN57zYf078yazvLUlKzCo1pQoR25MU51d7zgI_I7H2Fb5PZGcCmfvN1Up41OfEQyMLL6JYyoP23XQ",
+            "e": "AQAB"
         }))
         .unwrap();
         Mock::given(method("GET"))

@@ -59,7 +59,7 @@ impl<Claims> Authorizer<Claims> {
         &self.identifier
     }
 
-    pub(crate) async fn validate(&self, token: &UnverifiedJwt) -> Result<Claims, AuthError> {
-        self.jwt_validator.validate(token).await
+    pub(crate) fn validate(&self, token: &UnverifiedJwt) -> Result<Claims, AuthError> {
+        self.jwt_validator.validate(token)
     }
 }

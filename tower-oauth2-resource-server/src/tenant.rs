@@ -281,12 +281,6 @@ fn recommended_claims_spec(
 
 #[cfg(test)]
 mod tests {
-    use base64::{
-        engine::{general_purpose, GeneralPurpose},
-        Engine,
-    };
-    use rsa::traits::PublicKeyParts;
-
     use super::*;
     use crate::oidc::{MockOidcDiscovery, OidcConfig};
     use std::sync::Mutex;
@@ -467,20 +461,15 @@ mod tests {
         );
     }
 
-    /// Create a mock jwks
     fn mock_jwks() -> String {
-        let private = rsa::RsaPrivateKey::new(&mut rand::thread_rng(), 2048).unwrap();
-        let public = rsa::RsaPublicKey::from(private);
-        let base64_engine =
-            GeneralPurpose::new(&base64::alphabet::URL_SAFE, general_purpose::NO_PAD);
-        let n = base64_engine.encode(public.n().to_bytes_be());
-        let e = base64_engine.encode(public.e().to_bytes_be());
+        let modulus = "oEz_RrupHP9d9XiFbXLoJMwG-75Z18t4ziBy2PHTZHxkHOep7aFeNj-13NmIcL4ooj-2nxrLhWbgA2iBaWr95wKkf5peTsc-5Q6-B2uCcn9xPSQK08Y_jNVhtly3mAOdsT4Y9mQIO_oqaqEyzutypZBEu-18NkbGVwkNhG9sxvUjFXHvMoJs5iwILaDA2FhuEioIDzOy-ZjD8p928ye2v8CdPWl1xPxoBXd2KIe3RkocRDxLeeBg3wH8a9tQ5Z7fOmiXiAI8_lN57zYf078yazvLUlKzCo1pQoR25MU51d7zgI_I7H2Fb5PZGcCmfvN1Up41OfEQyMLL6JYyoP23XQ";
+        let exponent = "AQAB";
         serde_json::json!({
             "keys": [{
                 "kty": "RSA",
                 "kid": "test-kid",
-                "n": n,
-                "e": e
+                "n": modulus,
+                "e": exponent
             }]
         })
         .to_string()

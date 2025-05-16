@@ -12,6 +12,12 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
 };
 
+struct TestRsaKeyPair {
+    private_key: String,
+    modulus: String,
+    exponent: String,
+}
+
 #[derive(Serialize)]
 struct OpenIdConfig {
     pub issuer: String,

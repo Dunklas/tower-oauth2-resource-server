@@ -7,13 +7,13 @@ use wiremock::{
 };
 
 #[derive(Debug, Deserialize)]
-pub struct TestRsaKeyPair {
+pub struct RsaKey {
     pub private_key: String,
     pub modulus: String,
     pub exponent: String,
 }
 
-impl TestRsaKeyPair {
+impl RsaKey {
     pub fn encoding_key(&self) -> EncodingKey {
         EncodingKey::from_rsa_pem(self.private_key.as_bytes())
             .expect("Failed to create EncodingKey")
@@ -52,7 +52,7 @@ pub async fn mock_oidc_config(mock_server: &MockServer, issuer: &str) {
         .await;
 }
 
-pub fn jwks2(keys: &[(String, &TestRsaKeyPair)]) -> Jwks {
+pub fn jwks(keys: &[(String, &RsaKey)]) -> Jwks {
     let keys = keys
         .iter()
         .map(|(kid, pub_key)| Jwk {
@@ -67,8 +67,8 @@ pub fn jwks2(keys: &[(String, &TestRsaKeyPair)]) -> Jwks {
     Jwks { keys }
 }
 
-pub async fn mock_jwks2(mock_server: &MockServer, keys: &[(String, &TestRsaKeyPair)]) {
-    let jwks = jwks2(keys);
+pub async fn mock_jwks(mock_server: &MockServer, keys: &[(String, &RsaKey)]) {
+    let jwks = jwks(keys);
     Mock::given(method("GET"))
         .and(path("/jwks"))
         .respond_with(ResponseTemplate::new(200).set_body_json(jwks))
@@ -76,12 +76,12 @@ pub async fn mock_jwks2(mock_server: &MockServer, keys: &[(String, &TestRsaKeyPa
         .await;
 }
 
-pub fn rsa_key_pair2() -> Vec<TestRsaKeyPair> {
+pub fn rsa_keys() -> Vec<RsaKey> {
     let key_pairs = include_str!("key-pairs.json");
     serde_json::from_str(key_pairs).expect("Failed to read key-pairs.json")
 }
 
-pub fn jwt_from2(private_key: &TestRsaKeyPair, kid: &str, claims: Value) -> String {
+pub fn jwt_from(private_key: &RsaKey, kid: &str, claims: Value) -> String {
     let mut header = Header::new(jsonwebtoken::Algorithm::RS256);
     header.kid = Some(kid.to_owned());
     encode(&header, &claims, &private_key.encoding_key()).unwrap()

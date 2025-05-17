@@ -14,6 +14,6 @@ rust-version = "1.75"
 
 [workspace.dependencies]
 log = "0.4.27"
-tokio = "1.44.2"
+tokio = "1.45.0"
 tower = "0.5.2"
 env_logger = "0.11.6"

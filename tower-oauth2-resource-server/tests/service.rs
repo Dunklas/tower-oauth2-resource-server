@@ -4,7 +4,9 @@ use std::{
 };
 
 use bytes::Bytes;
-use common::{jwt_from, mock_jwks, mock_oidc_config, rsa_key_pair};
+use common::{
+    jwt_from, jwt_from2, mock_jwks, mock_jwks2, mock_oidc_config, rsa_key_pair, rsa_key_pair2,
+};
 use http::{header::AUTHORIZATION, HeaderName, Request, Response, StatusCode};
 use http_body_util::Full;
 use tokio::time::sleep;
@@ -62,16 +64,20 @@ async fn unauthorized_on_invalid_authorization() {
 
 #[tokio::test]
 async fn unauthorized_on_token_validation_failure() {
-    let (private_key, public_key) = rsa_key_pair();
+    let key_pairs = rsa_key_pair2();
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
-    mock_jwks(&mock_server, &[("good_key".to_owned(), public_key)]).await;
+    mock_jwks2(
+        &mock_server,
+        &[("good_key".to_owned(), key_pairs.first().unwrap())],
+    )
+    .await;
     let mut service = ServiceBuilder::new()
         .layer(default_auth_layer(&mock_server, &["https://some-resource-server.com"]).await)
         .service_fn(echo);
 
-    let token = jwt_from(
-        &private_key,
+    let token = jwt_from2(
+        key_pairs.first().unwrap(),
         "good_key",
         serde_json::json!({
             "iss": "https://auth-server.com",
@@ -89,18 +95,22 @@ async fn unauthorized_on_token_validation_failure() {
 
 #[tokio::test]
 async fn ok() {
-    let (private_key, public_key) = rsa_key_pair();
+    let key_pairs = rsa_key_pair2();
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
-    mock_jwks(&mock_server, &[("good_key".to_owned(), public_key)]).await;
+    mock_jwks2(
+        &mock_server,
+        &[("good_key".to_owned(), key_pairs.first().unwrap())],
+    )
+    .await;
     let mut service = ServiceBuilder::new()
         .layer(default_auth_layer(&mock_server, &["https://some-resource-server.com"]).await)
         .service_fn(echo);
     // Needed for initial jwks fetch
     sleep(Duration::from_millis(100)).await;
 
-    let token = jwt_from(
-        &private_key,
+    let token = jwt_from2(
+        &key_pairs.first().unwrap(),
         "good_key",
         serde_json::json!({
             "iss": mock_server.uri(),
@@ -118,8 +128,8 @@ async fn ok() {
 
 #[tokio::test]
 async fn ok_static() {
-    let (private_key, public_key) = rsa_key_pair();
-    let jwks = common::jwks(&[("good_key".to_string(), public_key)]);
+    let key_pairs = rsa_key_pair2();
+    let jwks = common::jwks2(&[("good_key".to_string(), key_pairs.first().unwrap())]);
     let layer = <OAuth2ResourceServer>::builder()
         .add_tenant(
             TenantConfiguration::static_builder(serde_json::to_string(&jwks).unwrap())
@@ -134,8 +144,8 @@ async fn ok_static() {
 
     let mut service = ServiceBuilder::new().layer(layer).service_fn(echo);
 
-    let token = jwt_from(
-        &private_key,
+    let token = jwt_from2(
+        &key_pairs.first().unwrap(),
         "good_key",
         serde_json::json!({
             "sub": "Some dude",
@@ -152,13 +162,14 @@ async fn ok_static() {
 
 #[tokio::test]
 async fn ok_mixed() {
-    let (static_private_key, static_public_key) = rsa_key_pair();
-    let jwks = common::jwks(&[("good_static".to_string(), static_public_key)]);
+    let mut key_pairs = rsa_key_pair2();
+    let static_key = key_pairs.remove(0);
+    let jwks = common::jwks2(&[("good_static".to_string(), &static_key)]);
 
-    let (oidc_private_key, oidc_public_key) = rsa_key_pair();
+    let oidc_key = key_pairs.remove(0);
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
-    mock_jwks(&mock_server, &[("good_oidc".to_owned(), oidc_public_key)]).await;
+    mock_jwks2(&mock_server, &[("good_oidc".to_owned(), &oidc_key)]).await;
 
     let layer = <OAuth2ResourceServer>::builder()
         .add_tenant(
@@ -183,8 +194,8 @@ async fn ok_mixed() {
     // Needed for initial jwks fetch
     sleep(Duration::from_millis(100)).await;
 
-    let token = jwt_from(
-        &oidc_private_key,
+    let token = jwt_from2(
+        &oidc_key,
         "good_oidc",
         serde_json::json!({
             "iss": mock_server.uri(),
@@ -199,8 +210,8 @@ async fn ok_mixed() {
     let response = service.ready().await.unwrap().call(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK, "OIDC request failed");
 
-    let token = jwt_from(
-        &static_private_key,
+    let token = jwt_from2(
+        &static_key,
         "good_static",
         serde_json::json!({
             "iss": "static",
@@ -216,13 +227,14 @@ async fn ok_mixed() {
 
 #[tokio::test]
 async fn ok_mixed_kid() {
-    let (static_private_key, static_public_key) = rsa_key_pair();
-    let jwks = common::jwks(&[("good_static".to_string(), static_public_key)]);
+    let mut key_pairs = rsa_key_pair2();
+    let static_key = key_pairs.remove(0);
+    let jwks = common::jwks2(&[("good_static".to_string(), &static_key)]);
 
-    let (oidc_private_key, oidc_public_key) = rsa_key_pair();
+    let oidc_key = key_pairs.remove(0);
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
-    mock_jwks(&mock_server, &[("good_oidc".to_owned(), oidc_public_key)]).await;
+    mock_jwks2(&mock_server, &[("good_oidc".to_owned(), &oidc_key)]).await;
 
     let layer = <OAuth2ResourceServer>::builder()
         .add_tenant(
@@ -253,8 +265,8 @@ async fn ok_mixed_kid() {
     // Needed for initial jwks fetch
     sleep(Duration::from_millis(100)).await;
 
-    let token = jwt_from(
-        &oidc_private_key,
+    let token = jwt_from2(
+        &oidc_key,
         "good_oidc",
         serde_json::json!({
             "sub": "Some dude",
@@ -268,8 +280,8 @@ async fn ok_mixed_kid() {
     let response = service.ready().await.unwrap().call(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK, "OIDC request failed");
 
-    let token = jwt_from(
-        &static_private_key,
+    let token = jwt_from2(
+        &static_key,
         "good_static",
         serde_json::json!({
             "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10

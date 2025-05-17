@@ -5,17 +5,25 @@ use base64::{
 };
 use jsonwebtoken::{encode, EncodingKey, Header};
 use rsa::{pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts, RsaPrivateKey, RsaPublicKey};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use wiremock::{
     matchers::{method, path},
     Mock, MockServer, ResponseTemplate,
 };
 
-struct TestRsaKeyPair {
-    private_key: String,
-    modulus: String,
-    exponent: String,
+#[derive(Debug, Deserialize)]
+pub struct TestRsaKeyPair {
+    pub private_key: String,
+    pub modulus: String,
+    pub exponent: String,
+}
+
+impl TestRsaKeyPair {
+    pub fn encoding_key(&self) -> EncodingKey {
+        EncodingKey::from_rsa_pem(self.private_key.as_bytes())
+            .expect("Failed to create EncodingKey")
+    }
 }
 
 #[derive(Serialize)]
@@ -68,6 +76,21 @@ pub fn jwks(keys: &[(String, RsaPublicKey)]) -> Jwks {
     Jwks { keys }
 }
 
+pub fn jwks2(keys: &[(String, &TestRsaKeyPair)]) -> Jwks {
+    let keys = keys
+        .iter()
+        .map(|(kid, pub_key)| Jwk {
+            kty: "RSA".to_string(),
+            use_: "sig".to_string(),
+            alg: "RS256".to_string(),
+            kid: kid.clone(),
+            n: pub_key.modulus.to_string(),
+            e: pub_key.exponent.to_string(),
+        })
+        .collect::<Vec<_>>();
+    Jwks { keys }
+}
+
 pub async fn mock_jwks(mock_server: &MockServer, keys: &[(String, RsaPublicKey)]) {
     let jwks = jwks(keys);
     Mock::given(method("GET"))
@@ -75,6 +98,20 @@ pub async fn mock_jwks(mock_server: &MockServer, keys: &[(String, RsaPublicKey)]
         .respond_with(ResponseTemplate::new(200).set_body_json(jwks))
         .mount(mock_server)
         .await;
+}
+
+pub async fn mock_jwks2(mock_server: &MockServer, keys: &[(String, &TestRsaKeyPair)]) {
+    let jwks = jwks2(keys);
+    Mock::given(method("GET"))
+        .and(path("/jwks"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(jwks))
+        .mount(mock_server)
+        .await;
+}
+
+pub fn rsa_key_pair2() -> Vec<TestRsaKeyPair> {
+    let key_pairs = include_str!("key-pairs.json");
+    serde_json::from_str(key_pairs).expect("Failed to read key-pairs.json")
 }
 
 pub fn rsa_key_pair() -> (RsaPrivateKey, RsaPublicKey) {
@@ -88,4 +125,10 @@ pub fn jwt_from(private_key: &RsaPrivateKey, kid: &str, claims: Value) -> String
     let mut header = Header::new(jsonwebtoken::Algorithm::RS256);
     header.kid = Some(kid.to_owned());
     encode(&header, &claims, &encoding_key).unwrap()
+}
+
+pub fn jwt_from2(private_key: &TestRsaKeyPair, kid: &str, claims: Value) -> String {
+    let mut header = Header::new(jsonwebtoken::Algorithm::RS256);
+    header.kid = Some(kid.to_owned());
+    encode(&header, &claims, &private_key.encoding_key()).unwrap()
 }

@@ -76,7 +76,7 @@ pub async fn mock_jwks(mock_server: &MockServer, keys: &[(String, &RsaKey)]) {
         .await;
 }
 
-pub fn rsa_keys() -> Vec<RsaKey> {
+pub fn rsa_keys() -> [RsaKey; 2] {
     let key_pairs = include_str!("key-pairs.json");
     serde_json::from_str(key_pairs).expect("Failed to read key-pairs.json")
 }

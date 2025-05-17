@@ -62,20 +62,16 @@ async fn unauthorized_on_invalid_authorization() {
 
 #[tokio::test]
 async fn unauthorized_on_token_validation_failure() {
-    let keys = rsa_keys();
+    let [rsa_key, ..] = rsa_keys();
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
-    mock_jwks(
-        &mock_server,
-        &[("good_key".to_owned(), keys.first().unwrap())],
-    )
-    .await;
+    mock_jwks(&mock_server, &[("good_key".to_owned(), &rsa_key)]).await;
     let mut service = ServiceBuilder::new()
         .layer(default_auth_layer(&mock_server, &["https://some-resource-server.com"]).await)
         .service_fn(echo);
 
     let token = jwt_from(
-        keys.first().unwrap(),
+        &rsa_key,
         "good_key",
         serde_json::json!({
             "iss": "https://auth-server.com",
@@ -93,14 +89,10 @@ async fn unauthorized_on_token_validation_failure() {
 
 #[tokio::test]
 async fn ok() {
-    let keys = rsa_keys();
+    let [rsa_key, ..] = rsa_keys();
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
-    mock_jwks(
-        &mock_server,
-        &[("good_key".to_owned(), keys.first().unwrap())],
-    )
-    .await;
+    mock_jwks(&mock_server, &[("good_key".to_owned(), &rsa_key)]).await;
     let mut service = ServiceBuilder::new()
         .layer(default_auth_layer(&mock_server, &["https://some-resource-server.com"]).await)
         .service_fn(echo);
@@ -108,7 +100,7 @@ async fn ok() {
     sleep(Duration::from_millis(100)).await;
 
     let token = jwt_from(
-        &keys.first().unwrap(),
+        &rsa_key,
         "good_key",
         serde_json::json!({
             "iss": mock_server.uri(),
@@ -126,8 +118,8 @@ async fn ok() {
 
 #[tokio::test]
 async fn ok_static() {
-    let keys = rsa_keys();
-    let jwks = common::jwks(&[("good_key".to_string(), keys.first().unwrap())]);
+    let [rsa_key, ..] = rsa_keys();
+    let jwks = common::jwks(&[("good_key".to_string(), &rsa_key)]);
     let layer = <OAuth2ResourceServer>::builder()
         .add_tenant(
             TenantConfiguration::static_builder(serde_json::to_string(&jwks).unwrap())
@@ -143,7 +135,7 @@ async fn ok_static() {
     let mut service = ServiceBuilder::new().layer(layer).service_fn(echo);
 
     let token = jwt_from(
-        &keys.first().unwrap(),
+        &rsa_key,
         "good_key",
         serde_json::json!({
             "sub": "Some dude",
@@ -160,11 +152,9 @@ async fn ok_static() {
 
 #[tokio::test]
 async fn ok_mixed() {
-    let mut keys = rsa_keys();
-    let static_key = keys.remove(0);
+    let [static_key, oidc_key] = rsa_keys();
     let jwks = common::jwks(&[("good_static".to_string(), &static_key)]);
 
-    let oidc_key = keys.remove(0);
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
     mock_jwks(&mock_server, &[("good_oidc".to_owned(), &oidc_key)]).await;
@@ -225,11 +215,9 @@ async fn ok_mixed() {
 
 #[tokio::test]
 async fn ok_mixed_kid() {
-    let mut keys = rsa_keys();
-    let static_key = keys.remove(0);
+    let [static_key, oidc_key] = rsa_keys();
     let jwks = common::jwks(&[("good_static".to_string(), &static_key)]);
 
-    let oidc_key = keys.remove(0);
     let mock_server = MockServer::start().await;
     mock_oidc_config(&mock_server, "https://auth-server.com").await;
     mock_jwks(&mock_server, &[("good_oidc".to_owned(), &oidc_key)]).await;

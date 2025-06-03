@@ -7,6 +7,7 @@ use bytes::Bytes;
 use common::{jwt_from, mock_jwks, mock_oidc_config, rsa_keys};
 use http::{header::AUTHORIZATION, HeaderName, Request, Response, StatusCode};
 use http_body_util::Full;
+use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 use tower::{BoxError, Service, ServiceBuilder, ServiceExt};
 
@@ -279,6 +280,60 @@ async fn ok_mixed_kid() {
     assert_eq!(response.status(), StatusCode::OK, "Static request failed");
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CustomJwtClaims {
+    sub: String,
+    role: String,
+}
+
+#[tokio::test]
+async fn propagates_jwt_claims() {
+    let [rsa_key, ..] = rsa_keys();
+    let mock_server = MockServer::start().await;
+    mock_oidc_config(&mock_server, "https://auth-server.com").await;
+    mock_jwks(&mock_server, &[("good_key".to_owned(), &rsa_key)]).await;
+
+    let auth_layer = OAuth2ResourceServer::<CustomJwtClaims>::builder()
+        .add_tenant(
+            TenantConfiguration::builder(mock_server.uri())
+                .audiences(&["https://some-resource-server.com"])
+                .build()
+                .await
+                .unwrap(),
+        )
+        .build()
+        .await
+        .expect("Failed to build OAuth2ResourceServer")
+        .into_layer();
+
+    let mut service = ServiceBuilder::new()
+        .layer(auth_layer)
+        .service_fn(echo_claims::<CustomJwtClaims>);
+
+    // Needed for initial jwks fetch
+    sleep(Duration::from_millis(100)).await;
+
+    let token = jwt_from(
+        &rsa_key,
+        "good_key",
+        serde_json::json!({
+            "iss": mock_server.uri(),
+            "sub": "Some dude",
+            "aud": vec!["https://some-resource-server.com"],
+            "nbf": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 10,
+            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10,
+            "role": "superuser"
+        }),
+    );
+    let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
+
+    let response = service.ready().await.unwrap().call(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = response.into_body();
+    assert_eq!(body, "{\"sub\":\"Some dude\",\"role\":\"superuser\"}");
+}
+
 async fn default_auth_layer(
     mock_server: &MockServer,
     audiences: &[impl ToString],
@@ -300,6 +355,21 @@ async fn default_auth_layer(
 async fn echo(req: Request<Full<Bytes>>) -> Result<Response<Full<Bytes>>, BoxError> {
     let b = req.into_body();
     let mut response = Response::new(b);
+    *response.status_mut() = StatusCode::OK;
+    Ok(response)
+}
+
+async fn echo_claims<T>(req: Request<Full<Bytes>>) -> Result<Response<String>, BoxError>
+where
+    T: Clone + Send + Sync + Serialize + 'static,
+{
+    let claims = req
+        .extensions()
+        .get::<T>()
+        .expect("Claims extension not found");
+
+    let json = serde_json::to_string(claims).unwrap();
+    let mut response = Response::new(json);
     *response.status_mut() = StatusCode::OK;
     Ok(response)
 }

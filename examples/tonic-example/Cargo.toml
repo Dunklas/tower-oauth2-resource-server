@@ -6,12 +6,13 @@ edition = "2021"
 tower-oauth2-resource-server = { path = "../../tower-oauth2-resource-server" }
 examples-util = { path = "../../examples-util" }
 
-tonic = "0.13"
-prost = "0.13.5"
+tonic = "0.14.0"
+prost = "0.14.1"
+tonic-prost = "0.14.0"
 tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
 log = { workspace = true }
 tower = { workspace = true }
 env_logger = { workspace = true }
 
 [build-dependencies]
-tonic-build = "0.13"
+tonic-prost-build = "0.14.0"

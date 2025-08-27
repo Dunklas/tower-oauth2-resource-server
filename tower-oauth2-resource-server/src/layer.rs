@@ -53,10 +53,7 @@ impl<Claims> OAuth2ResourceServerLayer<Claims>
 where
     Claims: DeserializeOwned,
 {
-    pub(crate) fn new(auth_manager: OAuth2ResourceServer<Claims>) -> Self
-    where
-        Claims: DeserializeOwned,
-    {
+    pub(crate) fn new(auth_manager: OAuth2ResourceServer<Claims>) -> Self {
         OAuth2ResourceServerLayer { auth_manager }
     }
 }

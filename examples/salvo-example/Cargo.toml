@@ -1,6 +1,6 @@
 [package]
 name = "salvo-example"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 tower-oauth2-resource-server = { path = "../../tower-oauth2-resource-server" }

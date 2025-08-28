@@ -1,7 +1,23 @@
 # tower-oauth2-resource-server
 
 Tower middleware that provides JWT authorization against an OpenID Connect (OIDC) Provider.
-This is useful when an application has delegated authentication and/or authorization to an external authorization service (e.g. Auth0, Microsoft Entra, etc).
+
+[![Crates.io][crates-badge]][crates-url]
+[![Documentation][docs-badge]][docs-url]
+[![MIT licensed][mit-badge]][mit-url]
+[![Build Status][actions-badge]][actions-url]
+
+[crates-badge]: https://img.shields.io/crates/v/tower-oauth2-resource-server.svg
+[crates-url]: https://crates.io/crates/tower-oauth2-resource-server
+[docs-badge]: https://docs.rs/tower-oauth2-resource-server/badge.svg
+[docs-url]: https://docs.rs/tower-oauth2-resource-server
+[mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
+[mit-url]: LICENSE
+[actions-badge]: https://github.com/Dunklas/tower-oauth2-resource-server/workflows/main/badge.svg
+[actions-url]:https://github.com/Dunklas/tower-oauth2-resource-server/actions?query=workflow%3Amain
+
+## Overview
+This crate is useful when an application has delegated authentication and/or authorization to an external authorization service (e.g. Auth0, Microsoft Entra, etc).
 
 Main inspiration for this middleware (both in naming and functionality) is [Spring Security OAuth 2.0 Resource Server](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/index.html).
 

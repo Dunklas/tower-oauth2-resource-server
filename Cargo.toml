@@ -8,9 +8,6 @@ members = [
 ]
 resolver = "2"
 
-[workspace.package]
-rust-version = "1.75"
-
 [workspace.dependencies]
 log = "0.4.27"
 tokio = "1.47.1"

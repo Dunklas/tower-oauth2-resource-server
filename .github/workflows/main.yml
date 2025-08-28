@@ -36,5 +36,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${MSRV}
-      - run: sed -i '/examples/s/^/ #/' Cargo.toml
+      - run: |
+          sed -i "/examples/s/^/    #/" Cargo.toml
       - run: cargo build --workspace --release

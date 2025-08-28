@@ -31,10 +31,7 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct OAuth2ResourceServerLayer<Claims>
-where
-    Claims: DeserializeOwned,
-{
+pub struct OAuth2ResourceServerLayer<Claims> {
     auth_manager: OAuth2ResourceServer<Claims>,
 }
 
@@ -49,28 +46,19 @@ where
     }
 }
 
-impl<Claims> OAuth2ResourceServerLayer<Claims>
-where
-    Claims: DeserializeOwned,
-{
+impl<Claims> OAuth2ResourceServerLayer<Claims> {
     pub(crate) fn new(auth_manager: OAuth2ResourceServer<Claims>) -> Self {
         OAuth2ResourceServerLayer { auth_manager }
     }
 }
 
 #[derive(Clone, Debug)]
-pub struct OAuth2ResourceServerService<S, Claims>
-where
-    Claims: Clone + DeserializeOwned + Send + 'static,
-{
+pub struct OAuth2ResourceServerService<S, Claims> {
     inner: S,
     auth_manager: OAuth2ResourceServer<Claims>,
 }
 
-impl<S, Claims> OAuth2ResourceServerService<S, Claims>
-where
-    Claims: Clone + DeserializeOwned + Send + 'static,
-{
+impl<S, Claims> OAuth2ResourceServerService<S, Claims> {
     fn new(inner: S, auth_manager: OAuth2ResourceServer<Claims>) -> Self {
         Self {
             inner,

@@ -10,10 +10,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct OAuth2ResourceServerBuilder<Claims>
-where
-    Claims: Clone + DeserializeOwned + Send + Sync + 'static,
-{
+pub struct OAuth2ResourceServerBuilder<Claims> {
     tenant_configurations: Vec<TenantConfiguration>,
     auth_resolver: Option<Arc<dyn AuthorizerResolver<Claims>>>,
     phantom: PhantomData<Claims>,
@@ -28,10 +25,7 @@ where
     }
 }
 
-impl<Claims> OAuth2ResourceServerBuilder<Claims>
-where
-    Claims: Clone + DeserializeOwned + Send + Sync + 'static,
-{
+impl<Claims> OAuth2ResourceServerBuilder<Claims> {
     fn new() -> Self {
         OAuth2ResourceServerBuilder::<Claims> {
             tenant_configurations: Vec::new(),
@@ -39,7 +33,12 @@ where
             phantom: PhantomData,
         }
     }
+}
 
+impl<Claims> OAuth2ResourceServerBuilder<Claims>
+where
+    Claims: Clone + DeserializeOwned + Send + Sync + 'static,
+{
     /// Add a tenant (authorization server).
     pub fn add_tenant(mut self, tenant_configuration: TenantConfiguration) -> Self {
         self.tenant_configurations.push(tenant_configuration);
@@ -79,10 +78,7 @@ where
     }
 }
 
-impl<Claims> Default for OAuth2ResourceServerBuilder<Claims>
-where
-    Claims: Clone + DeserializeOwned + Send + Sync + 'static,
-{
+impl<Claims> Default for OAuth2ResourceServerBuilder<Claims> {
     fn default() -> Self {
         Self::new()
     }

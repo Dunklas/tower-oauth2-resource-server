@@ -86,10 +86,7 @@ where
     }
 }
 
-impl<Claims> fmt::Debug for OAuth2ResourceServer<Claims>
-where
-    Claims: DeserializeOwned,
-{
+impl<Claims> fmt::Debug for OAuth2ResourceServer<Claims> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("OAuth2AuthenticationManager").finish()
     }
@@ -97,7 +94,7 @@ where
 
 impl<Claims> OAuth2ResourceServer<Claims>
 where
-    Claims: Clone + DeserializeOwned,
+    Claims: Clone,
 {
     /// Returns a [tower layer](https://docs.rs/tower/latest/tower/trait.Layer.html).
     pub fn into_layer(&self) -> OAuth2ResourceServerLayer<Claims> {

@@ -2,7 +2,7 @@ name: main
 on:
   push:
     branches:
-    - main
+      - main
   pull_request:
 
 jobs:
@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - run: sudo apt install -y protobuf-compiler
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy

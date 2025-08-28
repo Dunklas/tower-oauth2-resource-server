@@ -19,6 +19,13 @@ jobs:
           components: clippy
       - run: cargo fmt --all --check
       - run: cargo clippy --all-targets --all-features -- --deny warnings
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: sudo apt install -y protobuf-compiler
+      - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --all-features
 
   build-stable:

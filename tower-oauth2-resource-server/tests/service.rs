@@ -19,6 +19,9 @@ use wiremock::MockServer;
 
 mod common;
 
+// Needed for initial jwks fetch
+const START_UP_DELAY_MS: Duration = Duration::from_millis(150);
+
 #[tokio::test]
 async fn unauthorized_on_missing_authorization() {
     let mock_server = MockServer::start().await;
@@ -26,6 +29,7 @@ async fn unauthorized_on_missing_authorization() {
     let mut service = ServiceBuilder::new()
         .layer(default_auth_layer(&mock_server, &Vec::<String>::new()).await)
         .service_fn(echo);
+    sleep(START_UP_DELAY_MS).await;
 
     let request = request_with_headers(Vec::new());
 
@@ -47,6 +51,7 @@ async fn unauthorized_on_invalid_authorization() {
     let mut service = ServiceBuilder::new()
         .layer(default_auth_layer(&mock_server, &Vec::<String>::new()).await)
         .service_fn(echo);
+    sleep(START_UP_DELAY_MS).await;
 
     let request = request_with_headers(vec![(AUTHORIZATION, "NotAJWT")]);
 
@@ -70,6 +75,7 @@ async fn unauthorized_on_token_validation_failure() {
     let mut service = ServiceBuilder::new()
         .layer(default_auth_layer(&mock_server, &["https://some-resource-server.com"]).await)
         .service_fn(echo);
+    sleep(START_UP_DELAY_MS).await;
 
     let token = jwt_from(
         &rsa_key,
@@ -97,8 +103,7 @@ async fn ok() {
     let mut service = ServiceBuilder::new()
         .layer(default_auth_layer(&mock_server, &["https://some-resource-server.com"]).await)
         .service_fn(echo);
-    // Needed for initial jwks fetch
-    sleep(Duration::from_millis(100)).await;
+    sleep(START_UP_DELAY_MS).await;
 
     let token = jwt_from(
         &rsa_key,
@@ -134,6 +139,7 @@ async fn ok_static() {
         .into_layer();
 
     let mut service = ServiceBuilder::new().layer(layer).service_fn(echo);
+    sleep(START_UP_DELAY_MS).await;
 
     let token = jwt_from(
         &rsa_key,
@@ -180,8 +186,7 @@ async fn ok_mixed() {
         .into_layer();
 
     let mut service = ServiceBuilder::new().layer(layer).service_fn(echo);
-    // Needed for initial jwks fetch
-    sleep(Duration::from_millis(100)).await;
+    sleep(START_UP_DELAY_MS).await;
 
     let token = jwt_from(
         &oidc_key,
@@ -197,6 +202,7 @@ async fn ok_mixed() {
     let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
+    sleep(START_UP_DELAY_MS).await;
     assert_eq!(response.status(), StatusCode::OK, "OIDC request failed");
 
     let token = jwt_from(
@@ -249,8 +255,7 @@ async fn ok_mixed_kid() {
         .into_layer();
 
     let mut service = ServiceBuilder::new().layer(layer).service_fn(echo);
-    // Needed for initial jwks fetch
-    sleep(Duration::from_millis(100)).await;
+    sleep(START_UP_DELAY_MS).await;
 
     let token = jwt_from(
         &oidc_key,
@@ -265,6 +270,7 @@ async fn ok_mixed_kid() {
     let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
+    sleep(START_UP_DELAY_MS).await;
     assert_eq!(response.status(), StatusCode::OK, "OIDC request failed");
 
     let token = jwt_from(
@@ -309,9 +315,7 @@ async fn propagates_jwt_claims() {
     let mut service = ServiceBuilder::new()
         .layer(auth_layer)
         .service_fn(echo_claims::<CustomJwtClaims>);
-
-    // Needed for initial jwks fetch
-    sleep(Duration::from_millis(100)).await;
+    sleep(START_UP_DELAY_MS).await;
 
     let token = jwt_from(
         &rsa_key,

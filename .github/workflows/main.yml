@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v5
       - run: sudo apt install -y protobuf-compiler
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo build --workspace --release --locked
+      - run: cargo build --workspace --release
 
   build-msrv:
     runs-on: ubuntu-latest

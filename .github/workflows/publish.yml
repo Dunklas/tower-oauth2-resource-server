@@ -13,7 +13,6 @@ jobs:
       - name: Publish to crates.io
         run: |
           cargo publish \
-            --locked \
             --package tower-oauth2-resource-server \
             --token ${{ secrets.CRATES_IO_TOKEN }}
 

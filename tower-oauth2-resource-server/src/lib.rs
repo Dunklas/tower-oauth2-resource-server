@@ -118,6 +118,9 @@ pub mod jwt_unverified;
 /// via [add_tenant](crate::builder::OAuth2ResourceServerBuilder::add_tenant).
 pub mod tenant;
 
+/// TODO: Docs!
+pub mod error_handler;
+
 mod error;
 mod jwt_extract;
 mod oidc;

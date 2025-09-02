@@ -121,6 +121,8 @@ pub mod tenant;
 /// TODO: Docs!
 pub mod error_handler;
 
-mod error;
+/// TODO: Docs!
+pub mod error;
+
 mod jwt_extract;
 mod oidc;

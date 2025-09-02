@@ -5,6 +5,7 @@ members = [
     "examples/axum-example",
     "examples/salvo-example",
     "examples/tonic-example",
+    "examples/custom-error-handler",
 ]
 resolver = "2"
 

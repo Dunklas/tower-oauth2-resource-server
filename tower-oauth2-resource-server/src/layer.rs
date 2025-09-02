@@ -12,14 +12,14 @@ use tower::{Layer, Service};
 
 use crate::{error_handler::ErrorHandler, server::OAuth2ResourceServer};
 
-trait Authorize<B, ResBody> {
-    type Future: Future<Output = Result<Request<B>, Response<ResBody>>>;
+trait Authorize<ReqBody, ResBody> {
+    type Future: Future<Output = Result<Request<ReqBody>, Response<ResBody>>>;
 
-    fn authorize(&mut self, request: Request<B>) -> Self::Future;
+    fn authorize(&mut self, request: Request<ReqBody>) -> Self::Future;
 }
 
-impl<S, ReqBody, Claims, ResBody> Authorize<ReqBody, ResBody>
-    for OAuth2ResourceServerService<S, Claims, ResBody>
+impl<S, ReqBody, ResBody, Claims> Authorize<ReqBody, ResBody>
+    for OAuth2ResourceServerService<S, ResBody, Claims>
 where
     Claims: DeserializeOwned + Clone + Send + Sync + 'static,
     ReqBody: Send + 'static,
@@ -39,12 +39,12 @@ where
     }
 }
 
-pub struct OAuth2ResourceServerLayer<Claims, ResBody> {
+pub struct OAuth2ResourceServerLayer<ResBody, Claims> {
     auth_manager: OAuth2ResourceServer<Claims>,
     error_handler: Arc<dyn ErrorHandler<ResBody>>,
 }
 
-impl<Claims, ResBody> Clone for OAuth2ResourceServerLayer<Claims, ResBody>
+impl<ResBody, Claims> Clone for OAuth2ResourceServerLayer<ResBody, Claims>
 where
     Claims: Clone,
 {
@@ -56,11 +56,11 @@ where
     }
 }
 
-impl<S, Claims, ResBody> Layer<S> for OAuth2ResourceServerLayer<Claims, ResBody>
+impl<S, ResBody, Claims> Layer<S> for OAuth2ResourceServerLayer<ResBody, Claims>
 where
     Claims: Clone + DeserializeOwned + Send + 'static,
 {
-    type Service = OAuth2ResourceServerService<S, Claims, ResBody>;
+    type Service = OAuth2ResourceServerService<S, ResBody, Claims>;
 
     fn layer(&self, inner: S) -> Self::Service {
         OAuth2ResourceServerService::new(
@@ -71,7 +71,7 @@ where
     }
 }
 
-impl<Claims, ResBody> OAuth2ResourceServerLayer<Claims, ResBody> {
+impl<ResBody, Claims> OAuth2ResourceServerLayer<ResBody, Claims> {
     pub(crate) fn new(
         auth_manager: OAuth2ResourceServer<Claims>,
         error_handler: Arc<dyn ErrorHandler<ResBody>>,
@@ -83,13 +83,13 @@ impl<Claims, ResBody> OAuth2ResourceServerLayer<Claims, ResBody> {
     }
 }
 
-pub struct OAuth2ResourceServerService<S, Claims, ResBody> {
+pub struct OAuth2ResourceServerService<S, ResBody, Claims> {
     inner: S,
     auth_manager: OAuth2ResourceServer<Claims>,
     error_handler: Arc<dyn ErrorHandler<ResBody>>,
 }
 
-impl<S, Claims, ResBody> Clone for OAuth2ResourceServerService<S, Claims, ResBody>
+impl<S, ResBody, Claims> Clone for OAuth2ResourceServerService<S, ResBody, Claims>
 where
     S: Clone,
     Claims: Clone,
@@ -103,7 +103,7 @@ where
     }
 }
 
-impl<S, Claims, ResBody> OAuth2ResourceServerService<S, Claims, ResBody> {
+impl<S, ResBody, Claims> OAuth2ResourceServerService<S, ResBody, Claims> {
     fn new(
         inner: S,
         auth_manager: OAuth2ResourceServer<Claims>,
@@ -118,7 +118,7 @@ impl<S, Claims, ResBody> OAuth2ResourceServerService<S, Claims, ResBody> {
 }
 
 impl<S, ReqBody, ResBody, Claims> Service<Request<ReqBody>>
-    for OAuth2ResourceServerService<S, Claims, ResBody>
+    for OAuth2ResourceServerService<S, ResBody, Claims>
 where
     S: Service<Request<ReqBody>, Response = Response<ResBody>> + Clone,
     ResBody: Default + Send + 'static,
@@ -127,7 +127,7 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = ResponseFuture<S, ReqBody, Claims, ResBody>;
+    type Future = ResponseFuture<S, ReqBody, ResBody, Claims>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
@@ -144,11 +144,11 @@ where
     }
 }
 
-type AuthorizeFuture<S, ReqBody, Claims, ResBody> =
-    <OAuth2ResourceServerService<S, Claims, ResBody> as Authorize<ReqBody, ResBody>>::Future;
+type AuthorizeFuture<S, ReqBody, ResBody, Claims> =
+    <OAuth2ResourceServerService<S, ResBody, Claims> as Authorize<ReqBody, ResBody>>::Future;
 
 #[pin_project]
-pub struct ResponseFuture<S, ReqBody, Claims, ResBody>
+pub struct ResponseFuture<S, ReqBody, ResBody, Claims>
 where
     S: Service<Request<ReqBody>, Response = Response<ResBody>>,
     ReqBody: Send + 'static,
@@ -156,7 +156,7 @@ where
     ResBody: Send + 'static,
 {
     #[pin]
-    state: State<AuthorizeFuture<S, ReqBody, Claims, ResBody>, S::Future>,
+    state: State<AuthorizeFuture<S, ReqBody, ResBody, Claims>, S::Future>,
     service: S,
 }
 
@@ -172,14 +172,14 @@ enum State<A, SFut> {
     },
 }
 
-impl<S, ReqBody, B, Claims> Future for ResponseFuture<S, ReqBody, Claims, B>
+impl<S, ReqBody, ResBody, Claims> Future for ResponseFuture<S, ReqBody, ResBody, Claims>
 where
-    S: Service<Request<ReqBody>, Response = Response<B>>,
-    B: Default + Send + 'static,
+    S: Service<Request<ReqBody>, Response = Response<ResBody>>,
+    ResBody: Default + Send + 'static,
     ReqBody: Send + 'static,
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
 {
-    type Output = Result<Response<B>, S::Error>;
+    type Output = Result<Response<ResBody>, S::Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();

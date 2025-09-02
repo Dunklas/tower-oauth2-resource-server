@@ -98,7 +98,7 @@ where
     Claims: Clone,
 {
     /// Returns a [tower layer](https://docs.rs/tower/latest/tower/trait.Layer.html).
-    pub fn into_layer<ResBody>(&self) -> OAuth2ResourceServerLayer<Claims, ResBody>
+    pub fn into_layer<ResBody>(&self) -> OAuth2ResourceServerLayer<ResBody, Claims>
     where
         ResBody: Default,
     {
@@ -109,7 +109,7 @@ where
     pub fn into_layer_with_error_handler<ResBody>(
         &self,
         error_handler: Arc<dyn ErrorHandler<ResBody>>,
-    ) -> OAuth2ResourceServerLayer<Claims, ResBody> {
+    ) -> OAuth2ResourceServerLayer<ResBody, Claims> {
         OAuth2ResourceServerLayer::new(self.clone(), error_handler)
     }
 }

@@ -386,7 +386,7 @@ async fn custom_error_handler() {
 async fn default_auth_layer<T>(
     mock_server: &MockServer,
     audiences: &[impl ToString],
-) -> OAuth2ResourceServerLayer<DefaultClaims, T>
+) -> OAuth2ResourceServerLayer<T, DefaultClaims>
 where
     T: Default,
 {

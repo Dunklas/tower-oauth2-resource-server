@@ -2,7 +2,7 @@ use http::{header::WWW_AUTHENTICATE, HeaderValue, Response, StatusCode};
 
 use crate::error::AuthError;
 
-pub trait ErrorHandler<B> {
+pub trait ErrorHandler<B>: Send + Sync {
     fn handle_error(&self, error: &AuthError) -> Response<B>;
 }
 

@@ -338,10 +338,13 @@ async fn propagates_jwt_claims() {
     assert_eq!(body, "{\"sub\":\"Some dude\",\"role\":\"superuser\"}");
 }
 
-async fn default_auth_layer(
+async fn default_auth_layer<T>(
     mock_server: &MockServer,
     audiences: &[impl ToString],
-) -> OAuth2ResourceServerLayer<DefaultClaims> {
+) -> OAuth2ResourceServerLayer<DefaultClaims, T>
+where
+    T: Default,
+{
     <OAuth2ResourceServer>::builder()
         .add_tenant(
             TenantConfiguration::builder(mock_server.uri())

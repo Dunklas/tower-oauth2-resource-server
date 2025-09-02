@@ -144,6 +144,9 @@ where
     }
 }
 
+type AuthorizeFuture<S, ReqBody, Claims, ResBody> =
+    <OAuth2ResourceServerService<S, Claims, ResBody> as Authorize<ReqBody, ResBody>>::Future;
+
 #[pin_project]
 pub struct ResponseFuture<S, ReqBody, Claims, ResBody>
 where
@@ -153,10 +156,7 @@ where
     ResBody: Send + 'static,
 {
     #[pin]
-    state: State<
-        <OAuth2ResourceServerService<S, Claims, ResBody> as Authorize<ReqBody, ResBody>>::Future,
-        S::Future,
-    >,
+    state: State<AuthorizeFuture<S, ReqBody, Claims, ResBody>, S::Future>,
     service: S,
 }
 

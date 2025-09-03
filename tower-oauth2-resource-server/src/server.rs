@@ -11,6 +11,7 @@ use crate::{
     authorizer::token_authorizer::Authorizer,
     claims::DefaultClaims,
     error::{AuthError, StartupError},
+    error_handler::{DefaultErrorHandler, ErrorHandler},
     jwt_extract::{BearerTokenJwtExtractor, JwtExtractor},
     layer::OAuth2ResourceServerLayer,
     tenant::TenantConfiguration,
@@ -97,7 +98,18 @@ where
     Claims: Clone,
 {
     /// Returns a [tower layer](https://docs.rs/tower/latest/tower/trait.Layer.html).
-    pub fn into_layer(&self) -> OAuth2ResourceServerLayer<Claims> {
-        OAuth2ResourceServerLayer::new(self.clone())
+    pub fn into_layer<ResBody>(&self) -> OAuth2ResourceServerLayer<ResBody, Claims>
+    where
+        ResBody: Default,
+    {
+        OAuth2ResourceServerLayer::new(self.clone(), Arc::new(DefaultErrorHandler))
+    }
+
+    /// Returns a [tower layer](https://docs.rs/tower/latest/tower/trait.Layer.html) that uses a custom [ErrorHandler] implementation.
+    pub fn into_layer_with_error_handler<ResBody>(
+        &self,
+        error_handler: Arc<dyn ErrorHandler<ResBody>>,
+    ) -> OAuth2ResourceServerLayer<ResBody, Claims> {
+        OAuth2ResourceServerLayer::new(self.clone(), error_handler)
     }
 }

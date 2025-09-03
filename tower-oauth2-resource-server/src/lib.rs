@@ -118,6 +118,17 @@ pub mod jwt_unverified;
 /// via [add_tenant](crate::builder::OAuth2ResourceServerBuilder::add_tenant).
 pub mod tenant;
 
-mod error;
+/// [ErrorHandler](crate::error_handler::ErrorHandler) is used to produce a HTTP response
+/// on authentication error.
+///
+/// A custom implementation may be provided by using [into_layer_with_error_handler](crate::server::OAuth2ResourceServer::into_layer_with_error_handler).
+///
+/// If no implementation is provided, [DefaultErrorHandler](crate::error_handler::DefaultErrorHandler)
+/// will be used.
+pub mod error_handler;
+
+/// Error types
+pub mod error;
+
 mod jwt_extract;
 mod oidc;

@@ -6,21 +6,22 @@ use std::{
 use bytes::Bytes;
 use common::{jwt_from, mock_jwks, mock_oidc_config, rsa_keys};
 use http::{header::AUTHORIZATION, HeaderName, Request, Response, StatusCode};
-use http_body_util::Full;
+use http_body_util::{BodyExt, Full};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 use tower::{BoxError, Service, ServiceBuilder, ServiceExt};
 
 use tower_oauth2_resource_server::{
-    auth_resolver::KidAuthorizerResolver, claims::DefaultClaims, layer::OAuth2ResourceServerLayer,
-    server::OAuth2ResourceServer, tenant::TenantConfiguration, validation::ClaimsValidationSpec,
+    auth_resolver::KidAuthorizerResolver, claims::DefaultClaims, error::AuthError,
+    error_handler::ErrorHandler, layer::OAuth2ResourceServerLayer, server::OAuth2ResourceServer,
+    tenant::TenantConfiguration, validation::ClaimsValidationSpec,
 };
 use wiremock::MockServer;
 
 mod common;
 
 // Needed for initial jwks fetch
-const START_UP_DELAY_MS: Duration = Duration::from_millis(150);
+const START_UP_DELAY_MS: Duration = Duration::from_millis(500);
 
 #[tokio::test]
 async fn unauthorized_on_missing_authorization() {
@@ -338,10 +339,57 @@ async fn propagates_jwt_claims() {
     assert_eq!(body, "{\"sub\":\"Some dude\",\"role\":\"superuser\"}");
 }
 
-async fn default_auth_layer(
+struct TeapotErrorHandler {}
+
+impl ErrorHandler<Full<Bytes>> for TeapotErrorHandler {
+    fn map_error(&self, _: AuthError) -> Response<Full<Bytes>> {
+        Response::builder()
+            .status(StatusCode::IM_A_TEAPOT)
+            .body(Full::new("With a body".into()))
+            .unwrap()
+    }
+}
+
+#[tokio::test]
+async fn custom_error_handler() {
+    let mock_server = MockServer::start().await;
+    mock_oidc_config(&mock_server, "").await;
+    let mut service = ServiceBuilder::new()
+        .layer(
+            <OAuth2ResourceServer>::builder()
+                .add_tenant(
+                    TenantConfiguration::builder(mock_server.uri())
+                        .audiences(&Vec::<String>::new())
+                        .build()
+                        .await
+                        .unwrap(),
+                )
+                .build()
+                .await
+                .expect("Failed to build OAuth2ResourceServer")
+                .into_layer_with_error_handler(Arc::new(TeapotErrorHandler {})),
+        )
+        .service_fn(echo);
+    sleep(START_UP_DELAY_MS).await;
+
+    let request = request_with_headers(Vec::new());
+
+    let response = service.ready().await.unwrap().call(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::IM_A_TEAPOT);
+    let body = response.into_body().collect().await.unwrap();
+    assert_eq!(
+        String::from_utf8(body.to_bytes().into()).unwrap(),
+        "With a body".to_owned()
+    );
+}
+
+async fn default_auth_layer<T>(
     mock_server: &MockServer,
     audiences: &[impl ToString],
-) -> OAuth2ResourceServerLayer<DefaultClaims> {
+) -> OAuth2ResourceServerLayer<T, DefaultClaims>
+where
+    T: Default,
+{
     <OAuth2ResourceServer>::builder()
         .add_tenant(
             TenantConfiguration::builder(mock_server.uri())

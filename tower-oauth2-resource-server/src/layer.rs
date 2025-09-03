@@ -5,79 +5,129 @@ use serde::de::DeserializeOwned;
 
 use std::{
     pin::Pin,
+    sync::Arc,
     task::{ready, Context, Poll},
 };
 use tower::{Layer, Service};
 
-use crate::{error::AuthError, server::OAuth2ResourceServer};
+use crate::{error_handler::ErrorHandler, server::OAuth2ResourceServer};
 
-trait Authorize<B> {
-    type Future: Future<Output = Result<Request<B>, AuthError>>;
+trait Authorize<ReqBody, ResBody> {
+    type Future: Future<Output = Result<Request<ReqBody>, Response<ResBody>>>;
 
-    fn authorize(&mut self, request: Request<B>) -> Self::Future;
+    fn authorize(&mut self, request: Request<ReqBody>) -> Self::Future;
 }
 
-impl<S, ReqBody, Claims> Authorize<ReqBody> for OAuth2ResourceServerService<S, Claims>
+impl<S, ReqBody, ResBody, Claims> Authorize<ReqBody, ResBody>
+    for OAuth2ResourceServerService<S, ResBody, Claims>
 where
     Claims: DeserializeOwned + Clone + Send + Sync + 'static,
     ReqBody: Send + 'static,
+    ResBody: Send + 'static,
 {
-    type Future = BoxFuture<'static, Result<Request<ReqBody>, AuthError>>;
+    type Future = BoxFuture<'static, Result<Request<ReqBody>, Response<ResBody>>>;
 
     fn authorize(&mut self, request: Request<ReqBody>) -> Self::Future {
         let auth = self.auth_manager.clone();
-        Box::pin(async move { auth.authorize_request(request).await })
+        let error_handler = self.error_handler.clone();
+        Box::pin(async move {
+            match auth.authorize_request(request).await {
+                Ok(request) => Ok(request),
+                Err(error) => Err(error_handler.map_error(error)),
+            }
+        })
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct OAuth2ResourceServerLayer<Claims> {
+pub struct OAuth2ResourceServerLayer<ResBody, Claims> {
     auth_manager: OAuth2ResourceServer<Claims>,
+    error_handler: Arc<dyn ErrorHandler<ResBody>>,
 }
 
-impl<S, Claims> Layer<S> for OAuth2ResourceServerLayer<Claims>
+impl<ResBody, Claims> Clone for OAuth2ResourceServerLayer<ResBody, Claims>
+where
+    Claims: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            auth_manager: self.auth_manager.clone(),
+            error_handler: self.error_handler.clone(),
+        }
+    }
+}
+
+impl<S, ResBody, Claims> Layer<S> for OAuth2ResourceServerLayer<ResBody, Claims>
 where
     Claims: Clone + DeserializeOwned + Send + 'static,
 {
-    type Service = OAuth2ResourceServerService<S, Claims>;
+    type Service = OAuth2ResourceServerService<S, ResBody, Claims>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        OAuth2ResourceServerService::new(inner, self.auth_manager.clone())
+        OAuth2ResourceServerService::new(
+            inner,
+            self.auth_manager.clone(),
+            self.error_handler.clone(),
+        )
     }
 }
 
-impl<Claims> OAuth2ResourceServerLayer<Claims> {
-    pub(crate) fn new(auth_manager: OAuth2ResourceServer<Claims>) -> Self {
-        OAuth2ResourceServerLayer { auth_manager }
+impl<ResBody, Claims> OAuth2ResourceServerLayer<ResBody, Claims> {
+    pub(crate) fn new(
+        auth_manager: OAuth2ResourceServer<Claims>,
+        error_handler: Arc<dyn ErrorHandler<ResBody>>,
+    ) -> Self {
+        OAuth2ResourceServerLayer {
+            auth_manager,
+            error_handler,
+        }
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct OAuth2ResourceServerService<S, Claims> {
+pub struct OAuth2ResourceServerService<S, ResBody, Claims> {
     inner: S,
     auth_manager: OAuth2ResourceServer<Claims>,
+    error_handler: Arc<dyn ErrorHandler<ResBody>>,
 }
 
-impl<S, Claims> OAuth2ResourceServerService<S, Claims> {
-    fn new(inner: S, auth_manager: OAuth2ResourceServer<Claims>) -> Self {
+impl<S, ResBody, Claims> Clone for OAuth2ResourceServerService<S, ResBody, Claims>
+where
+    S: Clone,
+    Claims: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            auth_manager: self.auth_manager.clone(),
+            error_handler: self.error_handler.clone(),
+        }
+    }
+}
+
+impl<S, ResBody, Claims> OAuth2ResourceServerService<S, ResBody, Claims> {
+    fn new(
+        inner: S,
+        auth_manager: OAuth2ResourceServer<Claims>,
+        error_handler: Arc<dyn ErrorHandler<ResBody>>,
+    ) -> Self {
         Self {
             inner,
             auth_manager,
+            error_handler,
         }
     }
 }
 
 impl<S, ReqBody, ResBody, Claims> Service<Request<ReqBody>>
-    for OAuth2ResourceServerService<S, Claims>
+    for OAuth2ResourceServerService<S, ResBody, Claims>
 where
     S: Service<Request<ReqBody>, Response = Response<ResBody>> + Clone,
-    ResBody: Default,
+    ResBody: Default + Send + 'static,
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
     ReqBody: Send + 'static,
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = ResponseFuture<S, ReqBody, Claims>;
+    type Future = ResponseFuture<S, ReqBody, ResBody, Claims>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
@@ -94,15 +144,19 @@ where
     }
 }
 
+type AuthorizeFuture<S, ReqBody, ResBody, Claims> =
+    <OAuth2ResourceServerService<S, ResBody, Claims> as Authorize<ReqBody, ResBody>>::Future;
+
 #[pin_project]
-pub struct ResponseFuture<S, ReqBody, Claims>
+pub struct ResponseFuture<S, ReqBody, ResBody, Claims>
 where
-    S: Service<Request<ReqBody>>,
+    S: Service<Request<ReqBody>, Response = Response<ResBody>>,
     ReqBody: Send + 'static,
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
+    ResBody: Send + 'static,
 {
     #[pin]
-    state: State<<OAuth2ResourceServerService<S, Claims> as Authorize<ReqBody>>::Future, S::Future>,
+    state: State<AuthorizeFuture<S, ReqBody, ResBody, Claims>, S::Future>,
     service: S,
 }
 
@@ -118,14 +172,14 @@ enum State<A, SFut> {
     },
 }
 
-impl<S, ReqBody, B, Claims> Future for ResponseFuture<S, ReqBody, Claims>
+impl<S, ReqBody, ResBody, Claims> Future for ResponseFuture<S, ReqBody, ResBody, Claims>
 where
-    S: Service<Request<ReqBody>, Response = Response<B>>,
-    B: Default,
+    S: Service<Request<ReqBody>, Response = Response<ResBody>>,
+    ResBody: Default + Send + 'static,
     ReqBody: Send + 'static,
     Claims: Clone + DeserializeOwned + Send + Sync + 'static,
 {
-    type Output = Result<Response<B>, S::Error>;
+    type Output = Result<Response<ResBody>, S::Error>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
@@ -140,8 +194,7 @@ where
                             this.state.set(State::Authorized { fut })
                         }
                         Err(res) => {
-                            let response = Response::<B>::from(res);
-                            return Poll::Ready(Ok(response));
+                            return Poll::Ready(Ok(res));
                         }
                     };
                 }

@@ -17,7 +17,7 @@ use tower_oauth2_resource_server::{
 struct TeapotErrorHandler;
 
 impl ErrorHandler<Body> for TeapotErrorHandler {
-    fn into_response(&self, error: &AuthError) -> Response<Body> {
+    fn map_error(&self, error: AuthError) -> Response<Body> {
         Response::builder()
             .status(StatusCode::IM_A_TEAPOT)
             .body(error.to_string().into())

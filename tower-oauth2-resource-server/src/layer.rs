@@ -33,7 +33,7 @@ where
         Box::pin(async move {
             match auth.authorize_request(request).await {
                 Ok(request) => Ok(request),
-                Err(error) => Err(error_handler.into_response(&error)),
+                Err(error) => Err(error_handler.map_error(error)),
             }
         })
     }

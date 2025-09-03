@@ -342,7 +342,7 @@ async fn propagates_jwt_claims() {
 struct TeapotErrorHandler {}
 
 impl ErrorHandler<Full<Bytes>> for TeapotErrorHandler {
-    fn into_response(&self, _: &AuthError) -> Response<Full<Bytes>> {
+    fn map_error(&self, _: AuthError) -> Response<Full<Bytes>> {
         Response::builder()
             .status(StatusCode::IM_A_TEAPOT)
             .body(Full::new("With a body".into()))

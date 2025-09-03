@@ -105,7 +105,7 @@ where
         OAuth2ResourceServerLayer::new(self.clone(), Arc::new(DefaultErrorHandler))
     }
 
-    /// Returns a [tower layer] (https://docs.rs/tower/latest/tower/trait.Layer.html) that uses a custom [ErrorHandler](INSERT-LINK) implementation.
+    /// Returns a [tower layer](https://docs.rs/tower/latest/tower/trait.Layer.html) that uses a custom [ErrorHandler] implementation.
     pub fn into_layer_with_error_handler<ResBody>(
         &self,
         error_handler: Arc<dyn ErrorHandler<ResBody>>,

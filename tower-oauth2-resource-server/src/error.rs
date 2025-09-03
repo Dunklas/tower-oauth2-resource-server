@@ -51,16 +51,17 @@ impl Display for AuthError {
 }
 impl Error for AuthError {}
 
-impl<B> From<AuthError> for Response<B>
+impl<B> From<&AuthError> for Response<B>
 where
     B: Default,
 {
-    fn from(e: AuthError) -> Self {
+    fn from(e: &AuthError) -> Self {
         let mut response = Response::builder()
             .status(StatusCode::UNAUTHORIZED)
             .body(B::default())
             .unwrap();
-        if e == AuthError::MissingAuthorizationHeader || e == AuthError::InvalidAuthorizationHeader
+        if *e == AuthError::MissingAuthorizationHeader
+            || *e == AuthError::InvalidAuthorizationHeader
         {
             response
                 .headers_mut()

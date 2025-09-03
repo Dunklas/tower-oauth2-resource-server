@@ -1,4 +1,4 @@
-use http::{header::WWW_AUTHENTICATE, HeaderValue, Response, StatusCode};
+use http::Response;
 
 use crate::error::AuthError;
 
@@ -13,17 +13,6 @@ where
     B: Default,
 {
     fn handle_error(&self, error: &AuthError) -> Response<B> {
-        let mut response = Response::builder()
-            .status(StatusCode::UNAUTHORIZED)
-            .body(B::default())
-            .unwrap();
-        if *error == AuthError::MissingAuthorizationHeader
-            || *error == AuthError::InvalidAuthorizationHeader
-        {
-            response
-                .headers_mut()
-                .insert(WWW_AUTHENTICATE, HeaderValue::from_str("Bearer").unwrap());
-        }
-        response
+        error.into()
     }
 }

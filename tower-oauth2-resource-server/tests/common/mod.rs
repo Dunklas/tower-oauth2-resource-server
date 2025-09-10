@@ -6,6 +6,8 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
 };
 
+pub mod context;
+
 #[derive(Debug, Deserialize)]
 pub struct RsaKey {
     pub private_key: String,

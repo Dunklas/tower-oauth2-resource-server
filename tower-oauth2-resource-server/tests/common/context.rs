@@ -1,62 +1,94 @@
+use std::time::Duration;
+
 use futures_util::future::join_all;
+use tokio::time::sleep;
 use tower_oauth2_resource_server::{
-    server::OAuth2ResourceServer,
-    tenant::{TenantConfiguration, TenantConfigurationBuilder, TenantStaticConfigurationBuilder},
+    server::OAuth2ResourceServer, tenant::TenantConfiguration, validation::ClaimsValidationSpec,
 };
 use wiremock::{
     matchers::{method, path},
     Mock, MockServer, ResponseTemplate,
 };
 
-use crate::common::{mock_oidc_config, OpenIdConfig};
+use crate::common::{jwks, Jwks, OpenIdConfig, RsaKey};
 
-pub const DEFAULT_ISSUER: &str = "https://auth-server.com";
-pub const DEFAULT_KID: &str = "default-kid";
+// Needed for initial jwks fetch
+pub const START_UP_DELAY_MS: Duration = Duration::from_millis(500);
 
 pub struct TestContext {
     mock_server: MockServer,
-    key_id: String,
     tenant_configurations: Vec<TenantConfiguration>,
 }
 
-impl TestContext {
-    pub fn builder() -> TestContextBuilder {
+impl<'a> TestContext {
+    pub fn builder() -> TestContextBuilder<'a> {
         TestContextBuilder::new()
     }
 
-    pub async fn new(key_id: String, tenant_configurations: Vec<TenantInput>) -> Self {
+    pub async fn new(tenant_configurations: Vec<TenantInput<'a>>) -> Self {
         let mock_server = MockServer::start().await;
         for tenant_input in &tenant_configurations {
-            if let TenantInput::Oidc(issuer_path, _) = tenant_input {
+            if let TenantInput::Oidc(issuer_path, _, (kid, rsa_key), _) = tenant_input {
                 Self::mock_oidc(&mock_server, issuer_path).await;
+                Self::mock_jwks(&mock_server, issuer_path, &[(kid, rsa_key)]).await;
             }
         }
         let tenants = join_all(
             tenant_configurations
                 .iter()
                 .map(async |input| match input {
-                    TenantInput::Static(jwks, audiences) => {
-                        TenantConfiguration::static_builder(jwks)
-                            .audiences(&audiences)
-                            .build()
-                            .unwrap()
+                    TenantInput::Static(jwks, audiences, claims_validation_spec) => {
+                        let mut builder = TenantConfiguration::static_builder(
+                            serde_json::to_string(*jwks).unwrap(),
+                        )
+                        .audiences(&audiences);
+
+                        if let Some(claims_validation_spec) = claims_validation_spec {
+                            builder = builder.claims_validation(claims_validation_spec.clone());
+                        }
+
+                        builder.build().unwrap()
                     }
-                    TenantInput::Oidc(issuer_path, audiences) => TenantConfiguration::builder(
-                        format!("{}{}", mock_server.uri(), issuer_path),
-                    )
-                    .audiences(&audiences)
-                    .build()
-                    .await
-                    .unwrap(),
+                    TenantInput::Oidc(issuer_path, audiences, _, claims_validation_spec) => {
+                        let mut builder = TenantConfiguration::builder(format!(
+                            "{}{}",
+                            mock_server.uri(),
+                            issuer_path
+                        ))
+                        .audiences(&audiences);
+
+                        if let Some(claims_validation_spec) = claims_validation_spec {
+                            builder = builder.claims_validation(claims_validation_spec.clone());
+                        }
+
+                        builder.build().await.unwrap()
+                    }
                 })
                 .collect::<Vec<_>>(),
         )
         .await;
         Self {
-            key_id,
             tenant_configurations: tenants,
             mock_server,
         }
+    }
+
+    pub fn mock_server_uri(&self) -> String {
+        self.mock_server.uri()
+    }
+
+    pub fn tenant_configurations(&self) -> &Vec<TenantConfiguration> {
+        &self.tenant_configurations
+    }
+
+    pub async fn create_service(&self) -> OAuth2ResourceServer {
+        let server = OAuth2ResourceServer::builder()
+            .add_tenants(self.tenant_configurations.clone())
+            .build()
+            .await
+            .expect("Failed to build OAuth2ResourceServer");
+        sleep(START_UP_DELAY_MS).await;
+        server
     }
 
     async fn mock_oidc(mock_server: &MockServer, issuer_path: &str) {
@@ -67,60 +99,53 @@ impl TestContext {
             )))
             .respond_with(ResponseTemplate::new(200).set_body_json(OpenIdConfig {
                 issuer: format!("{}{}", &mock_server.uri(), issuer_path),
-                jwks_uri: format!("{}/jwks", &mock_server.uri()),
+                jwks_uri: format!("{}{}/jwks", &mock_server.uri(), issuer_path),
             }))
             .mount(mock_server)
             .await;
     }
 
-    pub async fn create_service(&self) -> OAuth2ResourceServer {
-        let builder = <OAuth2ResourceServer>::builder();
-        builder
-            .build()
-            .await
-            .expect("Failed to build OAuth2ResourceServer")
+    async fn mock_jwks(mock_server: &MockServer, issuer_path: &str, keys: &[(&str, &RsaKey)]) {
+        let jwks = jwks(keys);
+        Mock::given(method("GET"))
+            .and(path(format!("{}/jwks", issuer_path)))
+            .respond_with(ResponseTemplate::new(200).set_body_json(jwks))
+            .mount(mock_server)
+            .await;
     }
 }
 
-pub struct TestContextBuilder {
-    key_id: Option<String>,
-    tenants: Vec<TenantInput>,
+pub struct TestContextBuilder<'a> {
+    tenants: Vec<TenantInput<'a>>,
 }
 
-impl TestContextBuilder {
+impl<'a> TestContextBuilder<'a> {
     pub fn new() -> Self {
-        Self {
-            key_id: None,
-            tenants: vec![],
-        }
+        Self { tenants: vec![] }
     }
 
-    pub fn with_key_id<S: Into<String>>(mut self, key_id: S) -> Self {
-        self.key_id = Some(key_id.into());
-        self
-    }
-
-    pub fn with_tenant_configuration(mut self, config: TenantInput) -> Self {
+    pub fn with_tenant_configuration(mut self, config: TenantInput<'a>) -> Self {
         self.tenants.push(config);
         self
     }
 
     pub async fn build(self) -> TestContext {
-        TestContext::new(
-            self.key_id.unwrap_or_else(|| DEFAULT_KID.to_string()),
-            self.tenants,
-        )
-        .await
+        TestContext::new(self.tenants).await
     }
 }
 
-impl Default for TestContextBuilder {
+impl<'a> Default for TestContextBuilder<'a> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub enum TenantInput {
-    Oidc(String, Vec<String>),
-    Static(String, Vec<String>),
+pub enum TenantInput<'a> {
+    Oidc(
+        &'a str,
+        Vec<&'a str>,
+        (&'a str, &'a RsaKey),
+        Option<ClaimsValidationSpec>,
+    ),
+    Static(&'a Jwks, Vec<&'a str>, Option<ClaimsValidationSpec>),
 }

@@ -1,10 +1,6 @@
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use wiremock::{
-    matchers::{method, path},
-    Mock, MockServer, ResponseTemplate,
-};
 
 pub mod context;
 
@@ -23,7 +19,7 @@ impl RsaKey {
 }
 
 #[derive(Serialize)]
-struct OpenIdConfig {
+pub struct OpenIdConfig {
     pub issuer: String,
     pub jwks_uri: String,
 }
@@ -43,39 +39,19 @@ struct Jwk {
     e: String,
 }
 
-pub async fn mock_oidc_config(mock_server: &MockServer, issuer: &str) {
-    Mock::given(method("GET"))
-        .and(path("/.well-known/openid-configuration"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(OpenIdConfig {
-            issuer: issuer.to_owned(),
-            jwks_uri: format!("{}/jwks", &mock_server.uri()),
-        }))
-        .mount(mock_server)
-        .await;
-}
-
-pub fn jwks(keys: &[(String, &RsaKey)]) -> Jwks {
+pub fn jwks(keys: &[(&str, &RsaKey)]) -> Jwks {
     let keys = keys
         .iter()
         .map(|(kid, pub_key)| Jwk {
             kty: "RSA".to_string(),
             use_: "sig".to_string(),
             alg: "RS256".to_string(),
-            kid: kid.clone(),
+            kid: kid.to_string(),
             n: pub_key.modulus.to_string(),
             e: pub_key.exponent.to_string(),
         })
         .collect::<Vec<_>>();
     Jwks { keys }
-}
-
-pub async fn mock_jwks(mock_server: &MockServer, keys: &[(String, &RsaKey)]) {
-    let jwks = jwks(keys);
-    Mock::given(method("GET"))
-        .and(path("/jwks"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(jwks))
-        .mount(mock_server)
-        .await;
 }
 
 pub fn rsa_keys() -> [RsaKey; 2] {

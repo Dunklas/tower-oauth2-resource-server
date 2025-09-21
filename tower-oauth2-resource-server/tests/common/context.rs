@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures_util::future::join_all;
 use tokio::time::sleep;
@@ -10,7 +10,7 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
 };
 
-use crate::common::{self, jwks, rsa_keys, Jwks, OpenIdConfig, RsaKey};
+use crate::common::{self, jwks, jwt::JwtBuilder, rsa_keys, Jwks, OpenIdConfig, RsaKey};
 
 // Needed for initial jwks fetch
 pub const START_UP_DELAY_MS: Duration = Duration::from_millis(500);
@@ -97,6 +97,30 @@ impl<'a> TestContext {
             .expect("Failed to build OAuth2ResourceServer");
         sleep(START_UP_DELAY_MS).await;
         server
+    }
+
+    pub fn valid_jwt(&self) -> JwtBuilder {
+        JwtBuilder::new()
+            .iss(format!(
+                "{}{}",
+                &self.mock_server.uri(),
+                DEFAULT_ISSUER_PATH
+            ))
+            .sub("someone@example.com")
+            .nbf(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+                    - 10,
+            )
+            .exp(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+                    + 10,
+            )
     }
 
     async fn mock_oidc(mock_server: &MockServer, issuer_path: &str) {

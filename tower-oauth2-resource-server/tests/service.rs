@@ -16,8 +16,9 @@ use tower_oauth2_resource_server::{
     server::OAuth2ResourceServer, validation::ClaimsValidationSpec,
 };
 
-use crate::common::context::{
-    OidcOptions, StaticOptions, TenantInput, TestContext, START_UP_DELAY_MS,
+use crate::common::{
+    context::{OidcOptions, StaticOptions, TenantInput, TestContext, START_UP_DELAY_MS},
+    jwt::JwtBuilder,
 };
 
 mod common;
@@ -70,7 +71,6 @@ async fn unauthorized_on_invalid_authorization() {
 
 #[tokio::test]
 async fn unauthorized_on_token_validation_failure() {
-    let [rsa_key, ..] = rsa_keys();
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Oidc(OidcOptions::default()))
         .build()
@@ -79,18 +79,12 @@ async fn unauthorized_on_token_validation_failure() {
         .layer(ctx.create_service().await.into_layer())
         .service_fn(echo);
 
-    // TODO: Maybe introduce a helper for obtaining JWTs in test context?
-    let token = jwt_from(
-        &rsa_key,
-        "good_key",
-        serde_json::json!({
-            "iss": "https://auth-server.com",
-            "sub": "Some dude",
-            "aud": "https://some-resource-server.com",
-            "nbf": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - (10 * 60),
-            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - (2 * 60)
-        }),
-    );
+    let two_min_ago = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        - (2 * 60);
+    let token = ctx.valid_jwt().exp(two_min_ago).build();
     let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
@@ -99,7 +93,6 @@ async fn unauthorized_on_token_validation_failure() {
 
 #[tokio::test]
 async fn ok() {
-    let [rsa_key, ..] = rsa_keys();
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Oidc(
             OidcOptions::default().audiences(vec!["https://some-resource-server.com"]),
@@ -110,17 +103,10 @@ async fn ok() {
         .layer(ctx.create_service().await.into_layer())
         .service_fn(echo);
 
-    let token = jwt_from(
-        &rsa_key,
-        "good_key",
-        serde_json::json!({
-            "iss": format!("{}{}", &ctx.mock_server_uri(), "/auth-server"),
-            "sub": "Some dude",
-            "aud": vec!["https://some-resource-server.com"],
-            "nbf": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 10,
-            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10
-        }),
-    );
+    let token = ctx
+        .valid_jwt()
+        .aud("https://some-resource-server.com")
+        .build();
     let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
@@ -143,16 +129,11 @@ async fn ok_static() {
         .layer(ctx.create_service().await.into_layer())
         .service_fn(echo);
 
-    let token = jwt_from(
-        &rsa_key,
-        "good_key",
-        serde_json::json!({
-            "sub": "Some dude",
-            "aud": ["https://some-resource-server.com"],
-            "nbf": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 10,
-            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10
-        }),
-    );
+    let token = ctx
+        .valid_jwt()
+        .encoding_key(("good_key".to_owned(), rsa_key.clone()))
+        .aud("https://some-resource-server.com")
+        .build();
     let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
@@ -181,32 +162,22 @@ async fn ok_mixed() {
         .layer(ctx.create_service().await.into_layer())
         .service_fn(echo);
 
-    let token = jwt_from(
-        &oidc_key,
-        "good_oidc",
-        serde_json::json!({
-            "iss": format!("{}{}", ctx.mock_server_uri(), "/auth-server"),
-            "sub": "Some dude",
-            "aud": ["https://some-resource-server.com"],
-            "nbf": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 10,
-            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10
-        }),
-    );
+    let token = ctx
+        .valid_jwt()
+        .encoding_key(("good_oidc".to_owned(), oidc_key.clone()))
+        .aud("https://some-resource-server.com")
+        .build();
     let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
-    sleep(START_UP_DELAY_MS).await;
     assert_eq!(response.status(), StatusCode::OK, "OIDC request failed");
 
-    let token = jwt_from(
-        &static_key,
-        "good_static",
-        serde_json::json!({
-            "iss": "static",
-            "aud": ["https://some-resource-server.com"],
-            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10
-        }),
-    );
+    let token = ctx
+        .valid_jwt()
+        .encoding_key(("good_static".to_owned(), static_key.clone()))
+        .aud("https://some-resource-server.com")
+        .iss("static")
+        .build();
     let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
@@ -251,28 +222,32 @@ async fn ok_mixed_kid() {
         .service_fn(echo);
     sleep(START_UP_DELAY_MS).await;
 
-    let token = jwt_from(
-        &oidc_key,
-        "good_oidc",
-        serde_json::json!({
-            "sub": "Some dude",
-            "aud": ["https://some-resource-server.com"],
-            "nbf": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 10,
-            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10
-        }),
-    );
+    let token = JwtBuilder::new()
+        .encoding_key(("good_oidc".to_owned(), oidc_key.clone()))
+        .aud("https://some-resource-server.com")
+        .exp(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                + 10,
+        )
+        .build();
     let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
     assert_eq!(response.status(), StatusCode::OK, "OIDC request failed");
 
-    let token = jwt_from(
-        &static_key,
-        "good_static",
-        serde_json::json!({
-            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10
-        }),
-    );
+    let token = JwtBuilder::new()
+        .encoding_key(("good_static".to_owned(), static_key.clone()))
+        .exp(
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                + 10,
+        )
+        .build();
     let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();
@@ -287,7 +262,6 @@ struct CustomJwtClaims {
 
 #[tokio::test]
 async fn propagates_jwt_claims() {
-    let [rsa_key, ..] = rsa_keys();
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Oidc(
             OidcOptions::default().audiences(vec!["https://some-resource-server.com"]),
@@ -307,18 +281,12 @@ async fn propagates_jwt_claims() {
         .service_fn(echo_claims::<CustomJwtClaims>);
     sleep(START_UP_DELAY_MS).await;
 
-    let token = jwt_from(
-        &rsa_key,
-        "good_key",
-        serde_json::json!({
-            "iss": format!("{}{}", ctx.mock_server_uri(), "/auth-server"),
-            "sub": "Some dude",
-            "aud": vec!["https://some-resource-server.com"],
-            "nbf": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 10,
-            "exp": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() + 10,
-            "role": "superuser"
-        }),
-    );
+    let token = ctx
+        .valid_jwt()
+        .sub("Some dude")
+        .aud("https://some-resource-server.com")
+        .custom_claim("role".to_owned(), "superuser".to_owned())
+        .build();
     let request = request_with_headers(vec![(AUTHORIZATION, &format!("Bearer {}", token))]);
 
     let response = service.ready().await.unwrap().call(request).await.unwrap();

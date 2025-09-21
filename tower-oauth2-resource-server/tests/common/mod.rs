@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub mod context;
+pub mod jwt;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct RsaKey {

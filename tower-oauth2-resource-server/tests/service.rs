@@ -16,19 +16,16 @@ use tower_oauth2_resource_server::{
     server::OAuth2ResourceServer, validation::ClaimsValidationSpec,
 };
 
-use crate::common::context::{TenantInput, TestContext, START_UP_DELAY_MS};
+use crate::common::context::{
+    OidcOptions, StaticOptions, TenantInput, TestContext, START_UP_DELAY_MS,
+};
 
 mod common;
 
 #[tokio::test]
 async fn unauthorized_on_missing_authorization() {
     let ctx = TestContext::builder()
-        .with_tenant_configuration(TenantInput::Oidc(
-            "/auth-server",
-            vec![],
-            ("good_key", &rsa_keys()[0]),
-            None,
-        ))
+        .with_tenant_configuration(TenantInput::Oidc(OidcOptions::default()))
         .build()
         .await;
     let mut service = ServiceBuilder::new()
@@ -51,12 +48,7 @@ async fn unauthorized_on_missing_authorization() {
 #[tokio::test]
 async fn unauthorized_on_invalid_authorization() {
     let ctx = TestContext::builder()
-        .with_tenant_configuration(TenantInput::Oidc(
-            "/auth-server",
-            vec![],
-            ("good_key", &rsa_keys()[0]),
-            None,
-        ))
+        .with_tenant_configuration(TenantInput::Oidc(OidcOptions::default()))
         .build()
         .await;
     let mut service = ServiceBuilder::new()
@@ -80,18 +72,14 @@ async fn unauthorized_on_invalid_authorization() {
 async fn unauthorized_on_token_validation_failure() {
     let [rsa_key, ..] = rsa_keys();
     let ctx = TestContext::builder()
-        .with_tenant_configuration(TenantInput::Oidc(
-            "/auth-server",
-            vec![],
-            ("good_key", &rsa_key),
-            None,
-        ))
+        .with_tenant_configuration(TenantInput::Oidc(OidcOptions::default()))
         .build()
         .await;
     let mut service = ServiceBuilder::new()
         .layer(ctx.create_service().await.into_layer())
         .service_fn(echo);
 
+    // TODO: Maybe introduce a helper for obtaining JWTs in test context?
     let token = jwt_from(
         &rsa_key,
         "good_key",
@@ -114,10 +102,7 @@ async fn ok() {
     let [rsa_key, ..] = rsa_keys();
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Oidc(
-            "/auth-server",
-            vec!["https://some-resource-server.com"],
-            ("good_key", &rsa_key),
-            None,
+            OidcOptions::default().audiences(vec!["https://some-resource-server.com"]),
         ))
         .build()
         .await;
@@ -148,9 +133,9 @@ async fn ok_static() {
     let jwks = common::jwks(&[("good_key", &rsa_key)]);
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Static(
-            &jwks,
-            vec!["https://some-resource-server.com"],
-            None,
+            StaticOptions::default()
+                .jwks(jwks)
+                .audiences(vec!["https://some-resource-server.com"]),
         ))
         .build()
         .await;
@@ -181,15 +166,14 @@ async fn ok_mixed() {
 
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Static(
-            &jwks,
-            vec!["https://some-resource-server.com"],
-            None,
+            StaticOptions::default()
+                .jwks(jwks)
+                .audiences(vec!["https://some-resource-server.com"]),
         ))
         .with_tenant_configuration(TenantInput::Oidc(
-            "/auth-server",
-            vec!["https://some-resource-server.com"],
-            ("good_oidc", &oidc_key),
-            None,
+            OidcOptions::default()
+                .audiences(vec!["https://some-resource-server.com"])
+                .rsa(("good_oidc", oidc_key.clone())),
         ))
         .build()
         .await;
@@ -236,19 +220,20 @@ async fn ok_mixed_kid() {
 
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Static(
-            &jwks,
-            vec!["https://some-resource-server.com"],
-            Some(ClaimsValidationSpec::new().exp(true)),
+            StaticOptions::default()
+                .jwks(jwks)
+                .audiences(vec!["https://some-resource-server.com"])
+                .claims_validation(ClaimsValidationSpec::new().exp(true)),
         ))
         .with_tenant_configuration(TenantInput::Oidc(
-            "/auth-server",
-            vec!["https://some-resource-server.com"],
-            ("good_oidc", &oidc_key),
-            Some(
-                ClaimsValidationSpec::new()
-                    .aud(&vec!["https://some-resource-server.com".to_string()])
-                    .exp(true),
-            ),
+            OidcOptions::default()
+                .audiences(vec!["https://some-resource-server.com"])
+                .rsa(("good_oidc", oidc_key.clone()))
+                .claims_validation(
+                    ClaimsValidationSpec::new()
+                        .aud(&vec!["https://some-resource-server.com".to_string()])
+                        .exp(true),
+                ),
         ))
         .build()
         .await;
@@ -305,10 +290,7 @@ async fn propagates_jwt_claims() {
     let [rsa_key, ..] = rsa_keys();
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Oidc(
-            "",
-            vec!["https://some-resource-server.com"],
-            ("good_key", &rsa_key),
-            None,
+            OidcOptions::default().audiences(vec!["https://some-resource-server.com"]),
         ))
         .build()
         .await;
@@ -329,7 +311,7 @@ async fn propagates_jwt_claims() {
         &rsa_key,
         "good_key",
         serde_json::json!({
-            "iss": ctx.mock_server_uri(),
+            "iss": format!("{}{}", ctx.mock_server_uri(), "/auth-server"),
             "sub": "Some dude",
             "aud": vec!["https://some-resource-server.com"],
             "nbf": SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 10,
@@ -360,12 +342,7 @@ impl ErrorHandler<Full<Bytes>> for TeapotErrorHandler {
 #[tokio::test]
 async fn custom_error_handler() {
     let ctx = TestContext::builder()
-        .with_tenant_configuration(TenantInput::Oidc(
-            "",
-            vec![],
-            ("default_key", &rsa_keys()[0]),
-            None,
-        ))
+        .with_tenant_configuration(TenantInput::Oidc(OidcOptions::default()))
         .build()
         .await;
 

@@ -4,7 +4,7 @@ use serde_json::Value;
 
 pub mod context;
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct RsaKey {
     pub private_key: String,
     pub modulus: String,

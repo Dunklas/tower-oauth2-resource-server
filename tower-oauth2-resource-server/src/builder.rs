@@ -45,6 +45,7 @@ where
         self
     }
 
+    /// Add multiple tenants (authorization servers).
     pub fn add_tenants(mut self, tenant_configurations: Vec<TenantConfiguration>) -> Self {
         self.tenant_configurations.extend(tenant_configurations);
         self

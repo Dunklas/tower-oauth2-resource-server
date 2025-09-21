@@ -4,7 +4,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use common::{jwt_from, rsa_keys};
+use common::rsa_keys;
 use http::{header::AUTHORIZATION, HeaderName, Request, Response, StatusCode};
 use http_body_util::{BodyExt, Full};
 use serde::{Deserialize, Serialize};

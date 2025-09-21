@@ -1,6 +1,5 @@
-use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::EncodingKey;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 pub mod context;
 pub mod jwt;
@@ -58,10 +57,4 @@ pub fn jwks(keys: &[(&str, &RsaKey)]) -> Jwks {
 pub fn rsa_keys() -> [RsaKey; 2] {
     let key_pairs = include_str!("key-pairs.json");
     serde_json::from_str(key_pairs).expect("Failed to read key-pairs.json")
-}
-
-pub fn jwt_from(private_key: &RsaKey, kid: &str, claims: Value) -> String {
-    let mut header = Header::new(jsonwebtoken::Algorithm::RS256);
-    header.kid = Some(kid.to_owned());
-    encode(&header, &claims, &private_key.encoding_key()).unwrap()
 }

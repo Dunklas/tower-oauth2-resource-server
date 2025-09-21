@@ -36,7 +36,7 @@ impl<'a> TestContext {
                 Self::mock_jwks(
                     &mock_server,
                     options.issuer_path,
-                    &[(&options.key.0, &options.key.1)],
+                    &[(options.key.0, &options.key.1)],
                 )
                 .await;
             }
@@ -79,10 +79,6 @@ impl<'a> TestContext {
             tenant_configurations: tenants,
             mock_server,
         }
-    }
-
-    pub fn mock_server_uri(&self) -> String {
-        self.mock_server.uri()
     }
 
     pub fn tenant_configurations(&self) -> &Vec<TenantConfiguration> {

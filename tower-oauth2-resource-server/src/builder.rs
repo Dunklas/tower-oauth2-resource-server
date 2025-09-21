@@ -45,6 +45,12 @@ where
         self
     }
 
+    /// Add multiple tenants (authorization servers).
+    pub fn add_tenants(mut self, tenant_configurations: Vec<TenantConfiguration>) -> Self {
+        self.tenant_configurations.extend(tenant_configurations);
+        self
+    }
+
     /// Provide a custom authorization resolver.
     ///
     /// Only needs to be provided if the default resolver is not sufficient.

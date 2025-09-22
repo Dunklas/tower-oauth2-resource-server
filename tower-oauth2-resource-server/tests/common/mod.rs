@@ -1,5 +1,9 @@
+use bytes::Bytes;
+use http::{HeaderName, Request, Response, StatusCode};
+use http_body_util::Full;
 use jsonwebtoken::EncodingKey;
 use serde::{Deserialize, Serialize};
+use tower::BoxError;
 
 pub mod context;
 pub mod jwt;
@@ -57,4 +61,20 @@ pub fn jwks(keys: &[(&str, &RsaKey)]) -> Jwks {
 pub fn rsa_keys() -> [RsaKey; 2] {
     let key_pairs = include_str!("key-pairs.json");
     serde_json::from_str(key_pairs).expect("Failed to read key-pairs.json")
+}
+
+pub async fn echo(req: Request<Full<Bytes>>) -> Result<Response<Full<Bytes>>, BoxError> {
+    let b = req.into_body();
+    let mut response = Response::new(b);
+    *response.status_mut() = StatusCode::OK;
+    Ok(response)
+}
+
+pub fn request_with_headers(headers: Vec<(HeaderName, &str)>) -> Request<Full<Bytes>> {
+    let mut request = Request::get("/");
+    let request_headers = request.headers_mut().unwrap();
+    headers.into_iter().for_each(|(name, value)| {
+        request_headers.insert(name, value.parse().unwrap());
+    });
+    request.body(Full::<Bytes>::default()).unwrap()
 }

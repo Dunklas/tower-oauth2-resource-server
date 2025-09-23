@@ -4,6 +4,7 @@ use http_body_util::Full;
 use jsonwebtoken::EncodingKey;
 use serde::{Deserialize, Serialize};
 use tower::BoxError;
+use tower_oauth2_resource_server::{error::AuthError, error_handler::ErrorHandler};
 
 pub mod context;
 pub mod jwt;
@@ -77,4 +78,15 @@ pub fn request_with_headers(headers: Vec<(HeaderName, &str)>) -> Request<Full<By
         request_headers.insert(name, value.parse().unwrap());
     });
     request.body(Full::<Bytes>::default()).unwrap()
+}
+
+pub struct DetailedErrorHandler {}
+
+impl ErrorHandler<Full<Bytes>> for DetailedErrorHandler {
+    fn map_error(&self, error: AuthError) -> Response<Full<Bytes>> {
+        Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .body(Full::new(error.to_string().into()))
+            .unwrap()
+    }
 }

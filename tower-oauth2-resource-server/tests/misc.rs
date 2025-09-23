@@ -16,7 +16,7 @@ use crate::common::{
     echo, request_with_headers,
 };
 
-mod common;
+pub mod common;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct CustomJwtClaims {
@@ -24,7 +24,6 @@ struct CustomJwtClaims {
     role: String,
 }
 
-// Add alt. tests for both static and oidc?
 #[tokio::test]
 async fn propagates_jwt_claims() {
     let ctx = TestContext::builder()
@@ -72,7 +71,6 @@ impl ErrorHandler<Full<Bytes>> for TeapotErrorHandler {
     }
 }
 
-// If I use a custom error handler (for detailed errors) in some tests, I've no need for this
 #[tokio::test]
 async fn custom_error_handler() {
     let ctx = TestContext::builder()

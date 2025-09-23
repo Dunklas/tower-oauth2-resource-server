@@ -85,6 +85,10 @@ impl<'a> TestContext {
         &self.tenant_configurations
     }
 
+    pub fn mock_server_url(&self) -> String {
+        self.mock_server.uri()
+    }
+
     pub async fn create_service(&self) -> OAuth2ResourceServer {
         let server = OAuth2ResourceServer::builder()
             .add_tenants(self.tenant_configurations.clone())
@@ -192,6 +196,10 @@ impl<'a> Default for OidcOptions<'a> {
 }
 
 impl<'a> OidcOptions<'a> {
+    pub fn issuer_path(mut self, issuer_path: &'a str) -> Self {
+        self.issuer_path = issuer_path;
+        self
+    }
     pub fn audiences(mut self, audiences: Vec<&'a str>) -> Self {
         self.audiences = audiences;
         self

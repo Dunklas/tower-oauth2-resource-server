@@ -5,15 +5,12 @@ use tokio::time::sleep;
 use tower_oauth2_resource_server::{
     server::OAuth2ResourceServer, tenant::TenantConfiguration, validation::ClaimsValidationSpec,
 };
-use wiremock::{
-    matchers::{method, path},
-    Mock, MockServer, ResponseTemplate,
-};
+use wiremock::MockServer;
 
 use crate::common::{
-    jwks::{build_jwks, Jwks},
+    jwks::{build_jwks, mock_jwks, Jwks},
     jwt::JwtBuilder,
-    oidc::OpenIdConfig,
+    oidc::mock_oidc,
     rsa::{rsa_keys, RsaKey},
 };
 
@@ -37,8 +34,8 @@ impl<'a> TestContext {
         let mock_server = MockServer::start().await;
         for tenant_input in &tenant_configurations {
             if let TenantInput::Oidc(options) = tenant_input {
-                Self::mock_oidc(&mock_server, options.issuer_path).await;
-                Self::mock_jwks(
+                mock_oidc(&mock_server, options.issuer_path).await;
+                mock_jwks(
                     &mock_server,
                     options.issuer_path,
                     &[(options.key.0, &options.key.1)],
@@ -126,29 +123,6 @@ impl<'a> TestContext {
                     .as_secs()
                     + 10,
             )
-    }
-
-    async fn mock_oidc(mock_server: &MockServer, issuer_path: &str) {
-        Mock::given(method("GET"))
-            .and(path(format!(
-                "{}/.well-known/openid-configuration",
-                issuer_path
-            )))
-            .respond_with(ResponseTemplate::new(200).set_body_json(OpenIdConfig {
-                issuer: format!("{}{}", &mock_server.uri(), issuer_path),
-                jwks_uri: format!("{}{}/jwks", &mock_server.uri(), issuer_path),
-            }))
-            .mount(mock_server)
-            .await;
-    }
-
-    async fn mock_jwks(mock_server: &MockServer, issuer_path: &str, keys: &[(&str, &RsaKey)]) {
-        let jwks = build_jwks(keys);
-        Mock::given(method("GET"))
-            .and(path(format!("{}/jwks", issuer_path)))
-            .respond_with(ResponseTemplate::new(200).set_body_json(jwks))
-            .mount(mock_server)
-            .await;
     }
 }
 

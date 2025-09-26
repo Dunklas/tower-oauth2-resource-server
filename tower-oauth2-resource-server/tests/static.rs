@@ -14,9 +14,10 @@ use tower_oauth2_resource_server::{
 
 use crate::common::{
     context::{OidcOptions, StaticOptions, TenantInput, TestContext, START_UP_DELAY_MS},
-    echo,
+    jwks::build_jwks,
     jwt::JwtBuilder,
-    request_with_headers, rsa_keys, DetailedErrorHandler,
+    rsa::rsa_keys,
+    util::{echo, request_with_headers, DetailedErrorHandler},
 };
 
 pub mod common;
@@ -24,7 +25,7 @@ pub mod common;
 #[tokio::test]
 async fn ok() {
     let [rsa_key, ..] = rsa_keys();
-    let jwks = common::jwks(&[("good_key", &rsa_key)]);
+    let jwks = build_jwks(&[("good_key", &rsa_key)]);
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Static(
             StaticOptions::default()
@@ -51,7 +52,7 @@ async fn ok() {
 #[tokio::test]
 async fn ok_mixed_oidc() {
     let [static_key, oidc_key] = rsa_keys();
-    let jwks = common::jwks(&[("good_static", &static_key)]);
+    let jwks = build_jwks(&[("good_static", &static_key)]);
 
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Static(
@@ -85,7 +86,7 @@ async fn ok_mixed_oidc() {
 #[tokio::test]
 async fn ok_mixed_oidc_kid_resolver() {
     let [static_key, oidc_key] = rsa_keys();
-    let jwks = common::jwks(&[("good_static", &static_key)]);
+    let jwks = build_jwks(&[("good_static", &static_key)]);
 
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Static(
@@ -178,7 +179,7 @@ async fn unauthorized_on_missing_authorization() {
 #[tokio::test]
 async fn unauthorized_on_invalid_key() {
     let [valid_key, invalid_key] = rsa_keys();
-    let jwks = common::jwks(&[("good_key", &valid_key)]);
+    let jwks = build_jwks(&[("good_key", &valid_key)]);
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Static(StaticOptions::default().jwks(jwks)))
         .build()

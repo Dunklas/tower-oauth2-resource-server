@@ -9,7 +9,9 @@ use tower::{Service, ServiceBuilder, ServiceExt};
 
 use crate::common::{
     context::{OidcOptions, StaticOptions, TenantInput, TestContext},
-    echo, request_with_headers, rsa_keys, DetailedErrorHandler,
+    jwks::build_jwks,
+    rsa::rsa_keys,
+    util::{echo, request_with_headers, DetailedErrorHandler},
 };
 
 pub mod common;
@@ -39,7 +41,7 @@ async fn ok() {
 #[tokio::test]
 async fn ok_mixed_static() {
     let [oidc_key, static_key] = rsa_keys();
-    let jwks = common::jwks(&[("good_static", &static_key)]);
+    let jwks = build_jwks(&[("good_static", &static_key)]);
 
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Oidc(

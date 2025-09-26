@@ -10,7 +10,12 @@ use wiremock::{
     Mock, MockServer, ResponseTemplate,
 };
 
-use crate::common::{self, jwks, jwt::JwtBuilder, rsa_keys, Jwks, OpenIdConfig, RsaKey};
+use crate::common::{
+    jwks::{build_jwks, Jwks},
+    jwt::JwtBuilder,
+    oidc::OpenIdConfig,
+    rsa::{rsa_keys, RsaKey},
+};
 
 // Needed for initial jwks fetch
 pub const START_UP_DELAY_MS: Duration = Duration::from_millis(500);
@@ -138,7 +143,7 @@ impl<'a> TestContext {
     }
 
     async fn mock_jwks(mock_server: &MockServer, issuer_path: &str, keys: &[(&str, &RsaKey)]) {
-        let jwks = jwks(keys);
+        let jwks = build_jwks(keys);
         Mock::given(method("GET"))
             .and(path(format!("{}/jwks", issuer_path)))
             .respond_with(ResponseTemplate::new(200).set_body_json(jwks))
@@ -223,7 +228,7 @@ pub struct StaticOptions<'a> {
 impl<'a> Default for StaticOptions<'a> {
     fn default() -> Self {
         Self {
-            jwks: common::jwks(&[(DEFAULT_KID, &rsa_keys()[0])]),
+            jwks: build_jwks(&[(DEFAULT_KID, &rsa_keys()[0])]),
             audiences: vec![],
             claims_validation: None,
         }

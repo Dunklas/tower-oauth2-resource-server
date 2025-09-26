@@ -13,7 +13,7 @@ use tower_oauth2_resource_server::{
 
 use crate::common::{
     context::{OidcOptions, TenantInput, TestContext, START_UP_DELAY_MS},
-    echo, request_with_headers,
+    util::{echo, request_with_headers},
 };
 
 pub mod common;

@@ -1,7 +1,10 @@
 use jsonwebtoken::{encode, Header};
 use serde_json::json;
 
-use crate::common::{context::DEFAULT_KID, rsa_keys, RsaKey};
+use crate::common::{
+    context::DEFAULT_KID,
+    rsa::{rsa_keys, RsaKey},
+};
 
 #[derive(Clone, Debug)]
 pub struct JwtBuilder {

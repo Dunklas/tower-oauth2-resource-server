@@ -47,7 +47,7 @@ async fn propagates_jwt_claims() {
 
     let token = ctx
         .valid_jwt()
-        .sub("Some dude")
+        .subject("Some dude")
         .aud("https://some-resource-server.com")
         .custom_claim("role".to_owned(), "superuser".to_owned())
         .build();

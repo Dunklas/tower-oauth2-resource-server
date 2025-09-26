@@ -108,7 +108,7 @@ impl<'a> TestContext {
                 &self.mock_server.uri(),
                 DEFAULT_ISSUER_PATH
             ))
-            .sub("someone@example.com")
+            .subject("someone@example.com")
             .nbf(
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)

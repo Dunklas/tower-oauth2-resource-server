@@ -32,7 +32,7 @@ impl JwtBuilder {
         self
     }
 
-    pub fn sub<S: Into<String>>(mut self, sub: S) -> Self {
+    pub fn subject<S: Into<String>>(mut self, sub: S) -> Self {
         self.sub = Some(sub.into());
         self
     }

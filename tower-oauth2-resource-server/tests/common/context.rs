@@ -5,12 +5,14 @@ use tokio::time::sleep;
 use tower_oauth2_resource_server::{
     server::OAuth2ResourceServer, tenant::TenantConfiguration, validation::ClaimsValidationSpec,
 };
-use wiremock::{
-    matchers::{method, path},
-    Mock, MockServer, ResponseTemplate,
-};
+use wiremock::MockServer;
 
-use crate::common::{self, jwks, jwt::JwtBuilder, rsa_keys, Jwks, OpenIdConfig, RsaKey};
+use crate::common::{
+    jwks::{build_jwks, mock_jwks, Jwks},
+    jwt::JwtBuilder,
+    oidc::mock_oidc,
+    rsa::{rsa_keys, RsaKey},
+};
 
 // Needed for initial jwks fetch
 pub const START_UP_DELAY_MS: Duration = Duration::from_millis(500);
@@ -32,8 +34,8 @@ impl<'a> TestContext {
         let mock_server = MockServer::start().await;
         for tenant_input in &tenant_configurations {
             if let TenantInput::Oidc(options) = tenant_input {
-                Self::mock_oidc(&mock_server, options.issuer_path).await;
-                Self::mock_jwks(
+                mock_oidc(&mock_server, options.issuer_path).await;
+                mock_jwks(
                     &mock_server,
                     options.issuer_path,
                     &[(options.key.0, &options.key.1)],
@@ -85,6 +87,10 @@ impl<'a> TestContext {
         &self.tenant_configurations
     }
 
+    pub fn mock_server_url(&self) -> String {
+        self.mock_server.uri()
+    }
+
     pub async fn create_service(&self) -> OAuth2ResourceServer {
         let server = OAuth2ResourceServer::builder()
             .add_tenants(self.tenant_configurations.clone())
@@ -102,7 +108,7 @@ impl<'a> TestContext {
                 &self.mock_server.uri(),
                 DEFAULT_ISSUER_PATH
             ))
-            .sub("someone@example.com")
+            .subject("someone@example.com")
             .nbf(
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
@@ -117,29 +123,6 @@ impl<'a> TestContext {
                     .as_secs()
                     + 10,
             )
-    }
-
-    async fn mock_oidc(mock_server: &MockServer, issuer_path: &str) {
-        Mock::given(method("GET"))
-            .and(path(format!(
-                "{}/.well-known/openid-configuration",
-                issuer_path
-            )))
-            .respond_with(ResponseTemplate::new(200).set_body_json(OpenIdConfig {
-                issuer: format!("{}{}", &mock_server.uri(), issuer_path),
-                jwks_uri: format!("{}{}/jwks", &mock_server.uri(), issuer_path),
-            }))
-            .mount(mock_server)
-            .await;
-    }
-
-    async fn mock_jwks(mock_server: &MockServer, issuer_path: &str, keys: &[(&str, &RsaKey)]) {
-        let jwks = jwks(keys);
-        Mock::given(method("GET"))
-            .and(path(format!("{}/jwks", issuer_path)))
-            .respond_with(ResponseTemplate::new(200).set_body_json(jwks))
-            .mount(mock_server)
-            .await;
     }
 }
 
@@ -192,6 +175,10 @@ impl<'a> Default for OidcOptions<'a> {
 }
 
 impl<'a> OidcOptions<'a> {
+    pub fn issuer_path(mut self, issuer_path: &'a str) -> Self {
+        self.issuer_path = issuer_path;
+        self
+    }
     pub fn audiences(mut self, audiences: Vec<&'a str>) -> Self {
         self.audiences = audiences;
         self
@@ -215,7 +202,7 @@ pub struct StaticOptions<'a> {
 impl<'a> Default for StaticOptions<'a> {
     fn default() -> Self {
         Self {
-            jwks: common::jwks(&[(DEFAULT_KID, &rsa_keys()[0])]),
+            jwks: build_jwks(&[(DEFAULT_KID, &rsa_keys()[0])]),
             audiences: vec![],
             claims_validation: None,
         }

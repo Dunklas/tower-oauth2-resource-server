@@ -1,7 +1,10 @@
 use jsonwebtoken::{encode, Header};
 use serde_json::json;
 
-use crate::common::{context::DEFAULT_KID, rsa_keys, RsaKey};
+use crate::common::{
+    context::DEFAULT_KID,
+    rsa::{rsa_keys, RsaKey},
+};
 
 #[derive(Clone, Debug)]
 pub struct JwtBuilder {
@@ -29,7 +32,7 @@ impl JwtBuilder {
         self
     }
 
-    pub fn sub<S: Into<String>>(mut self, sub: S) -> Self {
+    pub fn subject<S: Into<String>>(mut self, sub: S) -> Self {
         self.sub = Some(sub.into());
         self
     }

@@ -275,6 +275,7 @@ fn recommended_claims_spec(
                 claims_spec = claims_spec.nbf(true);
             }
         }
+        claims_spec = claims_spec.iss(config.issuer.as_str());
     }
     claims_spec
 }

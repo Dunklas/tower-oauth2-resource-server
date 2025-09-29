@@ -11,7 +11,7 @@ use crate::error::StartupError;
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct OidcConfig {
     pub jwks_uri: Url,
-    pub issuer: Url,
+    pub issuer: String,
     pub claims_supported: Option<Vec<String>>,
 }
 

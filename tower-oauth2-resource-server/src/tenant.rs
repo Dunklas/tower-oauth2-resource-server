@@ -158,13 +158,9 @@ impl TenantConfigurationBuilder {
             )
         };
 
-        let claims_validation_spec =
-            self.claims_validation_spec
-                .unwrap_or(recommended_claims_spec(
-                    &self.audiences,
-                    Some(&self.issuer_url),
-                    &oidc_config,
-                ));
+        let claims_validation_spec = self
+            .claims_validation_spec
+            .unwrap_or(recommended_claims_spec(&self.audiences, &oidc_config));
 
         let jwks_url = match jwks_url {
             Some(jwks_url) => jwks_url,
@@ -245,7 +241,7 @@ impl TenantStaticConfigurationBuilder {
 
         let claims_validation_spec = self
             .claims_validation_spec
-            .unwrap_or(recommended_claims_spec(&self.audiences, None, &None));
+            .unwrap_or(recommended_claims_spec(&self.audiences, &None));
 
         let jwks = serde_json::from_str(&self.jwks)
             .map_err(|e| StartupError::InvalidParameter(format!("Failed to parse JWKS: {e}")))?;
@@ -262,13 +258,9 @@ impl TenantStaticConfigurationBuilder {
 
 fn recommended_claims_spec(
     audiences: &Vec<String>,
-    issuer_url: Option<&String>,
     oidc_config: &Option<OidcConfig>,
 ) -> ClaimsValidationSpec {
     let mut claims_spec = ClaimsValidationSpec::new().aud(audiences).exp(true);
-    if let Some(issuer_uri) = &issuer_url {
-        claims_spec = claims_spec.iss(issuer_uri);
-    }
     if let Some(config) = &oidc_config {
         if let Some(claims_supported) = &config.claims_supported {
             if claims_supported.contains(&"nbf".to_owned()) {
@@ -394,7 +386,7 @@ mod tests {
             result.unwrap().claims_validation_spec,
             ClaimsValidationSpec::new()
                 .exp(true)
-                .iss("https://some-issuer.com")
+                .iss("http://some-issuer.com")
                 .aud(&vec!["https://some-resource-server.com".to_owned()])
         );
     }
@@ -479,6 +471,7 @@ mod tests {
     fn default_oidc_config() -> OidcConfig {
         OidcConfig {
             jwks_uri: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
+            issuer: "http://some-issuer.com".to_owned(),
             claims_supported: None,
         }
     }

@@ -123,7 +123,7 @@ impl OnlyJwtValidatorInner {
             required_claims.push("aud");
             validation.set_audience(&claims_validation.aud);
         } else {
-            validation.validate_aud = claims_validation.validate_aud;
+            validation.validate_aud = false;
         }
         validation.set_required_spec_claims(&required_claims);
         validation

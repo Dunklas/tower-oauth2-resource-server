@@ -262,9 +262,7 @@ fn recommended_claims_spec(
 ) -> ClaimsValidationSpec {
     let mut claims_spec = ClaimsValidationSpec::new().exp(true);
     if !audiences.is_empty() {
-        claims_spec = claims_spec.aud(audiences).validate_aud(true);
-    } else {
-        claims_spec = claims_spec.validate_aud(false)
+        claims_spec = claims_spec.aud(audiences);
     }
 
     if let Some(config) = &oidc_config {

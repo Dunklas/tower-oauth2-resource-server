@@ -6,13 +6,11 @@ pub struct ClaimsValidationSpec {
     pub exp: bool,
     pub nbf: bool,
     pub aud: Vec<String>,
-    pub validate_aud: bool,
 }
 
 impl ClaimsValidationSpec {
     pub fn new() -> Self {
         Self {
-            validate_aud: true,
             ..Default::default()
         }
     }
@@ -38,11 +36,6 @@ impl ClaimsValidationSpec {
 
     pub fn aud(mut self, audiences: &Vec<String>) -> Self {
         self.aud = audiences.to_owned();
-        self
-    }
-
-    pub fn validate_aud(mut self, validate: bool) -> Self {
-        self.validate_aud = validate;
         self
     }
 }

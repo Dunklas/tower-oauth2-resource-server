@@ -36,7 +36,7 @@ pub struct OnlyJwtValidator {
 
 impl<Claims> JwtValidator<Claims> for OnlyJwtValidator
 where
-    Claims: DeserializeOwned,
+    Claims: DeserializeOwned + Clone,
 {
     fn validate(&self, token: &UnverifiedJwt) -> Result<Claims, AuthError> {
         let header = decode_header(token.as_str()).or(Err(AuthError::ParseJwtError))?;
@@ -193,7 +193,7 @@ mod tests {
 
     use super::{JwtValidator, OnlyJwtValidator};
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Clone, Deserialize, Debug)]
     struct Claims {}
 
     lazy_static! {

@@ -2,9 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 use jsonwebtoken::{
-    decode, decode_header,
+    Algorithm, DecodingKey, Validation, decode, decode_header,
     jwk::{Jwk, JwkSet, KeyAlgorithm},
-    Algorithm, DecodingKey, Validation,
 };
 use log::{info, warn};
 use serde::de::DeserializeOwned;
@@ -36,7 +35,7 @@ pub struct OnlyJwtValidator {
 
 impl<Claims> JwtValidator<Claims> for OnlyJwtValidator
 where
-    Claims: DeserializeOwned,
+    Claims: DeserializeOwned + Clone,
 {
     fn validate(&self, token: &UnverifiedJwt) -> Result<Claims, AuthError> {
         let header = decode_header(token.as_str()).or(Err(AuthError::ParseJwtError))?;
@@ -177,14 +176,13 @@ fn parse_key_alg(key_alg: KeyAlgorithm) -> Option<Algorithm> {
 mod tests {
     use super::*;
     use jsonwebtoken::{
-        encode,
+        EncodingKey, Header, encode,
         errors::ErrorKind,
         jwk::{Jwk, JwkSet},
-        EncodingKey, Header,
     };
     use lazy_static::lazy_static;
     use serde::Deserialize;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use crate::{
@@ -193,7 +191,7 @@ mod tests {
 
     use super::{JwtValidator, OnlyJwtValidator};
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Clone, Deserialize, Debug)]
     struct Claims {}
 
     lazy_static! {

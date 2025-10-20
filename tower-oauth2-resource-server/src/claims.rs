@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
-use serde_with::{formats::PreferMany, serde_as, OneOrMany};
+use serde_with::{OneOrMany, formats::PreferMany, serde_as};
 
 #[serde_as]
 #[derive(Clone, Debug, Deserialize, Serialize)]

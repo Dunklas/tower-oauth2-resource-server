@@ -169,7 +169,7 @@ impl TenantConfigurationBuilder {
                 None => {
                     return Err(StartupError::InvalidParameter(
                         "Failed to resolve JWKS URL".to_string(),
-                    ))
+                    ));
                 }
             },
         };

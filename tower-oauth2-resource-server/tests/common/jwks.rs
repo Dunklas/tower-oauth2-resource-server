@@ -1,7 +1,7 @@
 use serde::Serialize;
 use wiremock::{
-    matchers::{method, path},
     Mock, MockServer, ResponseTemplate,
+    matchers::{method, path},
 };
 
 use crate::common::rsa::RsaKey;

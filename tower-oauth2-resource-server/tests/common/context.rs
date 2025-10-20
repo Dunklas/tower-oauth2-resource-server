@@ -8,10 +8,10 @@ use tower_oauth2_resource_server::{
 use wiremock::MockServer;
 
 use crate::common::{
-    jwks::{build_jwks, mock_jwks, Jwks},
+    jwks::{Jwks, build_jwks, mock_jwks},
     jwt::JwtBuilder,
     oidc::mock_oidc,
-    rsa::{rsa_keys, RsaKey},
+    rsa::{RsaKey, rsa_keys},
 };
 
 // Needed for initial jwks fetch

@@ -3,7 +3,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use http::{header::AUTHORIZATION, StatusCode};
+use http::{StatusCode, header::AUTHORIZATION};
 use http_body_util::BodyExt;
 use tower::{Service, ServiceBuilder, ServiceExt};
 
@@ -11,7 +11,7 @@ use crate::common::{
     context::{OidcOptions, StaticOptions, TenantInput, TestContext},
     jwks::build_jwks,
     rsa::rsa_keys,
-    util::{echo, request_with_headers, DetailedErrorHandler},
+    util::{DetailedErrorHandler, echo, request_with_headers},
 };
 
 pub mod common;

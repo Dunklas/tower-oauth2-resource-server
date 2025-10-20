@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use http::{header::AUTHORIZATION, Request, Response, StatusCode};
+use http::{Request, Response, StatusCode, header::AUTHORIZATION};
 use http_body_util::{BodyExt, Full};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
@@ -12,7 +12,7 @@ use tower_oauth2_resource_server::{
 };
 
 use crate::common::{
-    context::{OidcOptions, TenantInput, TestContext, START_UP_DELAY_MS},
+    context::{OidcOptions, START_UP_DELAY_MS, TenantInput, TestContext},
     util::{echo, request_with_headers},
 };
 

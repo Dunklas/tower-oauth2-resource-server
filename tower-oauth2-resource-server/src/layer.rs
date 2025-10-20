@@ -1,4 +1,4 @@
-use futures_util::{future::BoxFuture, Future};
+use futures_util::{Future, future::BoxFuture};
 use http::{Request, Response};
 use pin_project::pin_project;
 use serde::de::DeserializeOwned;
@@ -6,7 +6,7 @@ use serde::de::DeserializeOwned;
 use std::{
     pin::Pin,
     sync::Arc,
-    task::{ready, Context, Poll},
+    task::{Context, Poll, ready},
 };
 use tower::{Layer, Service};
 

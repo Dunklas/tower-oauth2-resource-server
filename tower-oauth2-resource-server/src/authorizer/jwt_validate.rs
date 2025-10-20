@@ -2,9 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 use jsonwebtoken::{
-    decode, decode_header,
+    Algorithm, DecodingKey, Validation, decode, decode_header,
     jwk::{Jwk, JwkSet, KeyAlgorithm},
-    Algorithm, DecodingKey, Validation,
 };
 use log::{info, warn};
 use serde::de::DeserializeOwned;
@@ -177,14 +176,13 @@ fn parse_key_alg(key_alg: KeyAlgorithm) -> Option<Algorithm> {
 mod tests {
     use super::*;
     use jsonwebtoken::{
-        encode,
+        EncodingKey, Header, encode,
         errors::ErrorKind,
         jwk::{Jwk, JwkSet},
-        EncodingKey, Header,
     };
     use lazy_static::lazy_static;
     use serde::Deserialize;
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use crate::{

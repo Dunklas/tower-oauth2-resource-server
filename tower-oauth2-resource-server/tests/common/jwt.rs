@@ -1,9 +1,9 @@
-use jsonwebtoken::{encode, Header};
+use jsonwebtoken::{Header, encode};
 use serde_json::json;
 
 use crate::common::{
     context::DEFAULT_KID,
-    rsa::{rsa_keys, RsaKey},
+    rsa::{RsaKey, rsa_keys},
 };
 
 #[derive(Clone, Debug)]

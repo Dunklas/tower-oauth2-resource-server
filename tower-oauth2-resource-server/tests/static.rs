@@ -3,7 +3,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use http::{header::AUTHORIZATION, StatusCode};
+use http::{StatusCode, header::AUTHORIZATION};
 use http_body_util::BodyExt;
 use tokio::time::sleep;
 use tower::{Service, ServiceBuilder, ServiceExt};
@@ -13,11 +13,11 @@ use tower_oauth2_resource_server::{
 };
 
 use crate::common::{
-    context::{OidcOptions, StaticOptions, TenantInput, TestContext, START_UP_DELAY_MS},
+    context::{OidcOptions, START_UP_DELAY_MS, StaticOptions, TenantInput, TestContext},
     jwks::build_jwks,
     jwt::JwtBuilder,
     rsa::rsa_keys,
-    util::{echo, request_with_headers, DetailedErrorHandler},
+    util::{DetailedErrorHandler, echo, request_with_headers},
 };
 
 pub mod common;

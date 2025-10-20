@@ -87,8 +87,8 @@ mod tests {
     use serde_json::json;
     use tokio::sync::RwLock;
     use wiremock::{
-        matchers::{method, path},
         Mock, MockServer, ResponseTemplate,
+        matchers::{method, path},
     };
 
     use super::*;

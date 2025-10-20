@@ -8,8 +8,8 @@ repository = "https://github.com/Dunklas/tower-oauth2-resource-server"
 readme = "README.md"
 version = "0.7.0"
 
-edition = "2018"
-rust-version = "1.82.0"
+edition = "2024"
+rust-version = "1.85.0"
 exclude = ["tests"]
 
 [dependencies]

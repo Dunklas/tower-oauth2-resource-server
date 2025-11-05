@@ -5,7 +5,7 @@ use serde::de::DeserializeOwned;
 use crate::{
     auth_resolver::{AuthorizerResolver, IssuerAuthorizerResolver, SingleAuthorizerResolver},
     error::StartupError,
-    jwt_extract::JwtExtractor,
+    jwt_resolver::BearerTokenResolver,
     server::OAuth2ResourceServer,
     tenant::TenantConfiguration,
 };
@@ -13,7 +13,7 @@ use crate::{
 pub struct OAuth2ResourceServerBuilder<Claims> {
     tenant_configurations: Vec<TenantConfiguration>,
     auth_resolver: Option<Arc<dyn AuthorizerResolver<Claims>>>,
-    jwt_extractor: Option<Arc<dyn JwtExtractor + Send + Sync>>,
+    bearer_token_resolver: Option<Arc<dyn BearerTokenResolver + Send + Sync>>,
     phantom: PhantomData<Claims>,
 }
 
@@ -31,7 +31,7 @@ impl<Claims> OAuth2ResourceServerBuilder<Claims> {
         OAuth2ResourceServerBuilder::<Claims> {
             tenant_configurations: Vec::new(),
             auth_resolver: None,
-            jwt_extractor: None,
+            bearer_token_resolver: None,
             phantom: PhantomData,
         }
     }
@@ -63,13 +63,16 @@ where
         self
     }
 
-    /// Provide a custom JWT extractor.
+    /// Provide a custom bearer token resolver.
     ///
-    /// Only needs to be provided if the default bearer token extraction is not sufficient.
+    /// Only needs to be provided if the default bearer token resolver is not sufficient.
     ///
-    /// See [JwtExtractor] for more information.
-    pub fn jwt_extractor(mut self, jwt_extractor: Arc<dyn JwtExtractor + Send + Sync>) -> Self {
-        self.jwt_extractor = Some(jwt_extractor);
+    /// See [BearerTokenResolver] for more information.
+    pub fn bearer_token_resolver(
+        mut self,
+        bearer_token_resolver: Arc<dyn BearerTokenResolver + Send + Sync>,
+    ) -> Self {
+        self.bearer_token_resolver = Some(bearer_token_resolver);
         self
     }
 
@@ -95,7 +98,7 @@ where
         OAuth2ResourceServer::new(
             self.tenant_configurations,
             auth_resolver,
-            self.jwt_extractor,
+            self.bearer_token_resolver,
         )
         .await
     }

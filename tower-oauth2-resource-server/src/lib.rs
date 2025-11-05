@@ -130,5 +130,15 @@ pub mod error_handler;
 /// Error types
 pub mod error;
 
-mod jwt_extract;
+/// [BearerTokenResolver](crate::jwt_resolver::BearerTokenResolver) is used to extract JWT tokens from HTTP requests.
+///
+/// The default implementation [DefaultBearerTokenResolver](crate::jwt_resolver::DefaultBearerTokenResolver)
+/// extracts tokens from the Authorization header with the "Bearer" prefix.
+///
+/// You can provide a custom implementation to extract tokens from different headers,
+/// query parameters, etc.
+///
+/// Custom implementations may be provided via [bearer_token_resolver](crate::builder::OAuth2ResourceServerBuilder::bearer_token_resolver).
+pub mod jwt_resolver;
+
 mod oidc;

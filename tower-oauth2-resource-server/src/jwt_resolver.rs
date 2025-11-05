@@ -2,19 +2,20 @@ use http::Request;
 
 use crate::{error::AuthError, jwt_unverified::UnverifiedJwt};
 
-/// Trait for extracting JWT tokens from HTTP requests.
+/// Trait for resolving bearer tokens (JWT) from HTTP requests.
 ///
 /// The trait accepts a reference to the request (without the body) to allow
 /// implementations to extract tokens from headers, query parameters, or other
 /// parts of the request.
-pub trait JwtExtractor {
-    fn extract_jwt(&self, request: &Request<()>) -> Result<UnverifiedJwt, AuthError>;
+pub trait BearerTokenResolver {
+    fn resolve(&self, request: &Request<()>) -> Result<UnverifiedJwt, AuthError>;
 }
 
-pub struct BearerTokenJwtExtractor;
+/// Default implementation that extracts bearer tokens from the Authorization header.
+pub struct DefaultBearerTokenResolver;
 
-impl JwtExtractor for BearerTokenJwtExtractor {
-    fn extract_jwt(&self, request: &Request<()>) -> Result<UnverifiedJwt, AuthError> {
+impl BearerTokenResolver for DefaultBearerTokenResolver {
+    fn resolve(&self, request: &Request<()>) -> Result<UnverifiedJwt, AuthError> {
         Ok(UnverifiedJwt::new(
             request
                 .headers()
@@ -49,7 +50,7 @@ mod tests {
     #[test]
     fn test_missing_authorization() {
         let request = Request::builder().body(()).unwrap();
-        let result = BearerTokenJwtExtractor {}.extract_jwt(&request);
+        let result = DefaultBearerTokenResolver {}.resolve(&request);
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), AuthError::MissingAuthorizationHeader);
@@ -61,7 +62,7 @@ mod tests {
             .header("Authorization", "Boarer XXX")
             .body(())
             .unwrap();
-        let result = BearerTokenJwtExtractor {}.extract_jwt(&request);
+        let result = DefaultBearerTokenResolver {}.resolve(&request);
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), AuthError::InvalidAuthorizationHeader);
@@ -73,7 +74,7 @@ mod tests {
             .header("Authorization", "Bearer XXX")
             .body(())
             .unwrap();
-        let result = BearerTokenJwtExtractor {}.extract_jwt(&request);
+        let result = DefaultBearerTokenResolver {}.resolve(&request);
 
         assert!(result.is_ok());
     }

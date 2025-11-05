@@ -1,17 +1,23 @@
-use http::HeaderMap;
+use http::Request;
 
 use crate::{error::AuthError, jwt_unverified::UnverifiedJwt};
 
+/// Trait for extracting JWT tokens from HTTP requests.
+///
+/// The trait accepts a reference to the request (without the body) to allow
+/// implementations to extract tokens from headers, query parameters, or other
+/// parts of the request.
 pub trait JwtExtractor {
-    fn extract_jwt(&self, headers: &HeaderMap) -> Result<UnverifiedJwt, AuthError>;
+    fn extract_jwt(&self, request: &Request<()>) -> Result<UnverifiedJwt, AuthError>;
 }
 
 pub struct BearerTokenJwtExtractor;
 
 impl JwtExtractor for BearerTokenJwtExtractor {
-    fn extract_jwt(&self, headers: &HeaderMap) -> Result<UnverifiedJwt, AuthError> {
+    fn extract_jwt(&self, request: &Request<()>) -> Result<UnverifiedJwt, AuthError> {
         Ok(UnverifiedJwt::new(
-            headers
+            request
+                .headers()
                 .get(http::header::AUTHORIZATION)
                 .ok_or(AuthError::MissingAuthorizationHeader)?
                 .to_str()
@@ -23,16 +29,27 @@ impl JwtExtractor for BearerTokenJwtExtractor {
     }
 }
 
+pub(crate) fn request_ref<Body>(request: &Request<Body>) -> Request<()> {
+    let mut builder = Request::builder()
+        .method(request.method())
+        .uri(request.uri())
+        .version(request.version());
+
+    if let Some(headers) = builder.headers_mut() {
+        *headers = request.headers().clone();
+    }
+
+    builder.body(()).expect("Failed to build request reference")
+}
+
 #[cfg(test)]
 mod tests {
-    use http::HeaderValue;
-
     use super::*;
 
     #[test]
     fn test_missing_authorization() {
-        let headers = HeaderMap::new();
-        let result = BearerTokenJwtExtractor {}.extract_jwt(&headers);
+        let request = Request::builder().body(()).unwrap();
+        let result = BearerTokenJwtExtractor {}.extract_jwt(&request);
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), AuthError::MissingAuthorizationHeader);
@@ -40,12 +57,11 @@ mod tests {
 
     #[test]
     fn test_missing_bearer_prefix() {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            "Authorization",
-            HeaderValue::from_str("Boarer XXX").unwrap(),
-        );
-        let result = BearerTokenJwtExtractor {}.extract_jwt(&headers);
+        let request = Request::builder()
+            .header("Authorization", "Boarer XXX")
+            .body(())
+            .unwrap();
+        let result = BearerTokenJwtExtractor {}.extract_jwt(&request);
 
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), AuthError::InvalidAuthorizationHeader);
@@ -53,12 +69,11 @@ mod tests {
 
     #[test]
     fn test_ok() {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            "Authorization",
-            HeaderValue::from_str("Bearer XXX").unwrap(),
-        );
-        let result = BearerTokenJwtExtractor {}.extract_jwt(&headers);
+        let request = Request::builder()
+            .header("Authorization", "Bearer XXX")
+            .body(())
+            .unwrap();
+        let result = BearerTokenJwtExtractor {}.extract_jwt(&request);
 
         assert!(result.is_ok());
     }

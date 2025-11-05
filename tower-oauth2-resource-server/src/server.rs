@@ -12,7 +12,7 @@ use crate::{
     claims::DefaultClaims,
     error::{AuthError, StartupError},
     error_handler::{DefaultErrorHandler, ErrorHandler},
-    jwt_extract::{BearerTokenJwtExtractor, JwtExtractor},
+    jwt_extract::{BearerTokenJwtExtractor, JwtExtractor, request_ref},
     layer::OAuth2ResourceServerLayer,
     tenant::TenantConfiguration,
 };
@@ -58,7 +58,8 @@ where
         &self,
         mut request: Request<Body>,
     ) -> Result<Request<Body>, AuthError> {
-        let token = match self.jwt_extractor.extract_jwt(request.headers()) {
+        let req_ref = request_ref(&request);
+        let token = match self.jwt_extractor.extract_jwt(&req_ref) {
             Ok(token) => token,
             Err(e) => {
                 debug!("JWT extraction failed: {}", e);

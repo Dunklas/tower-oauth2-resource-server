@@ -35,6 +35,7 @@ where
     pub(crate) async fn new(
         tenant_configurations: Vec<TenantConfiguration>,
         auth_resolver: Arc<dyn AuthorizerResolver<Claims>>,
+        jwt_extractor: Option<Arc<dyn JwtExtractor + Send + Sync>>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
         let authorizers = join_all(
             tenant_configurations
@@ -47,7 +48,7 @@ where
         .collect::<Result<Vec<_>, StartupError>>()?;
 
         Ok(OAuth2ResourceServer {
-            jwt_extractor: Arc::new(BearerTokenJwtExtractor {}),
+            jwt_extractor: jwt_extractor.unwrap_or_else(|| Arc::new(BearerTokenJwtExtractor {})),
             authorizers,
             auth_resolver,
         })

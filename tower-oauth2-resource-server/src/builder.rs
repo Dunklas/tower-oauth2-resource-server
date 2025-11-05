@@ -5,14 +5,15 @@ use serde::de::DeserializeOwned;
 use crate::{
     auth_resolver::{AuthorizerResolver, IssuerAuthorizerResolver, SingleAuthorizerResolver},
     error::StartupError,
+    jwt_extract::JwtExtractor,
     server::OAuth2ResourceServer,
     tenant::TenantConfiguration,
 };
 
-#[derive(Debug)]
 pub struct OAuth2ResourceServerBuilder<Claims> {
     tenant_configurations: Vec<TenantConfiguration>,
     auth_resolver: Option<Arc<dyn AuthorizerResolver<Claims>>>,
+    jwt_extractor: Option<Arc<dyn JwtExtractor + Send + Sync>>,
     phantom: PhantomData<Claims>,
 }
 
@@ -30,6 +31,7 @@ impl<Claims> OAuth2ResourceServerBuilder<Claims> {
         OAuth2ResourceServerBuilder::<Claims> {
             tenant_configurations: Vec::new(),
             auth_resolver: None,
+            jwt_extractor: None,
             phantom: PhantomData,
         }
     }
@@ -61,6 +63,16 @@ where
         self
     }
 
+    /// Provide a custom JWT extractor.
+    ///
+    /// Only needs to be provided if the default bearer token extraction is not sufficient.
+    ///
+    /// See [JwtExtractor] for more information.
+    pub fn jwt_extractor(mut self, jwt_extractor: Arc<dyn JwtExtractor + Send + Sync>) -> Self {
+        self.jwt_extractor = Some(jwt_extractor);
+        self
+    }
+
     /// Construct an OAuth2ResourceServer.
     ///
     /// During construction the OIDC Provider Configuration endpoint of the
@@ -80,7 +92,12 @@ where
                 Arc::new(IssuerAuthorizerResolver {})
             }
         });
-        OAuth2ResourceServer::new(self.tenant_configurations, auth_resolver).await
+        OAuth2ResourceServer::new(
+            self.tenant_configurations,
+            auth_resolver,
+            self.jwt_extractor,
+        )
+        .await
     }
 }
 

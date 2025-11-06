@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use http::{Request, Response, StatusCode, header::AUTHORIZATION};
+use http::{HeaderName, Request, Response, StatusCode, header::AUTHORIZATION};
 use http_body_util::{BodyExt, Full};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 use tower::{BoxError, Service, ServiceBuilder, ServiceExt};
 
 use tower_oauth2_resource_server::{
-    error::AuthError, error_handler::ErrorHandler, server::OAuth2ResourceServer,
+    error::AuthError, error_handler::ErrorHandler, jwt_resolver::BearerTokenResolver,
+    jwt_unverified::UnverifiedJwt, server::OAuth2ResourceServer,
 };
 
 use crate::common::{
@@ -110,4 +111,55 @@ where
     let mut response = Response::new(json);
     *response.status_mut() = StatusCode::OK;
     Ok(response)
+}
+
+struct CustomHeaderResolver;
+
+impl BearerTokenResolver for CustomHeaderResolver {
+    fn resolve(&self, request: &http::Request<()>) -> Result<UnverifiedJwt, AuthError> {
+        let token = request
+            .headers()
+            .get("x-custom-auth-token")
+            .ok_or(AuthError::MissingAuthorizationHeader)?
+            .to_str()
+            .map_err(|_| AuthError::InvalidAuthorizationHeader)?;
+
+        Ok(UnverifiedJwt::new(token.to_owned()))
+    }
+}
+
+#[tokio::test]
+async fn custom_jwt_resolver() {
+    let ctx = TestContext::builder()
+        .with_tenant_configuration(TenantInput::Oidc(
+            OidcOptions::default().audiences(vec!["https://some-resource-server.com"]),
+        ))
+        .build()
+        .await;
+
+    let mut service = ServiceBuilder::new()
+        .layer(
+            <OAuth2ResourceServer>::builder()
+                .add_tenants(ctx.tenant_configurations().clone())
+                .bearer_token_resolver(Arc::new(CustomHeaderResolver))
+                .build()
+                .await
+                .unwrap()
+                .into_layer(),
+        )
+        .service_fn(echo);
+    sleep(START_UP_DELAY_MS).await;
+
+    let token = ctx
+        .valid_jwt()
+        .aud("https://some-resource-server.com")
+        .build();
+
+    let request = request_with_headers(vec![(
+        HeaderName::from_static("x-custom-auth-token"),
+        &token,
+    )]);
+
+    let response = service.ready().await.unwrap().call(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
 }

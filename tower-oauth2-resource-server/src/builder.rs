@@ -5,14 +5,15 @@ use serde::de::DeserializeOwned;
 use crate::{
     auth_resolver::{AuthorizerResolver, IssuerAuthorizerResolver, SingleAuthorizerResolver},
     error::StartupError,
+    jwt_resolver::BearerTokenResolver,
     server::OAuth2ResourceServer,
     tenant::TenantConfiguration,
 };
 
-#[derive(Debug)]
 pub struct OAuth2ResourceServerBuilder<Claims> {
     tenant_configurations: Vec<TenantConfiguration>,
     auth_resolver: Option<Arc<dyn AuthorizerResolver<Claims>>>,
+    bearer_token_resolver: Option<Arc<dyn BearerTokenResolver + Send + Sync>>,
     phantom: PhantomData<Claims>,
 }
 
@@ -30,6 +31,7 @@ impl<Claims> OAuth2ResourceServerBuilder<Claims> {
         OAuth2ResourceServerBuilder::<Claims> {
             tenant_configurations: Vec::new(),
             auth_resolver: None,
+            bearer_token_resolver: None,
             phantom: PhantomData,
         }
     }
@@ -61,6 +63,19 @@ where
         self
     }
 
+    /// Provide a custom bearer token resolver.
+    ///
+    /// Only needs to be provided if the default bearer token resolver is not sufficient.
+    ///
+    /// See [BearerTokenResolver] for more information.
+    pub fn bearer_token_resolver(
+        mut self,
+        bearer_token_resolver: Arc<dyn BearerTokenResolver + Send + Sync>,
+    ) -> Self {
+        self.bearer_token_resolver = Some(bearer_token_resolver);
+        self
+    }
+
     /// Construct an OAuth2ResourceServer.
     ///
     /// During construction the OIDC Provider Configuration endpoint of the
@@ -80,7 +95,12 @@ where
                 Arc::new(IssuerAuthorizerResolver {})
             }
         });
-        OAuth2ResourceServer::new(self.tenant_configurations, auth_resolver).await
+        OAuth2ResourceServer::new(
+            self.tenant_configurations,
+            auth_resolver,
+            self.bearer_token_resolver,
+        )
+        .await
     }
 }
 

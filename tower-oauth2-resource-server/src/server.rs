@@ -12,7 +12,7 @@ use crate::{
     claims::DefaultClaims,
     error::{AuthError, StartupError},
     error_handler::{DefaultErrorHandler, ErrorHandler},
-    jwt_extract::{BearerTokenJwtExtractor, JwtExtractor},
+    jwt_resolver::{BearerTokenResolver, DefaultBearerTokenResolver, request_ref},
     layer::OAuth2ResourceServerLayer,
     tenant::TenantConfiguration,
 };
@@ -24,7 +24,7 @@ use crate::{
 #[derive(Clone)]
 pub struct OAuth2ResourceServer<Claims = DefaultClaims> {
     authorizers: Vec<Authorizer<Claims>>,
-    jwt_extractor: Arc<dyn JwtExtractor + Send + Sync>,
+    bearer_token_resolver: Arc<dyn BearerTokenResolver + Send + Sync>,
     auth_resolver: Arc<dyn AuthorizerResolver<Claims>>,
 }
 
@@ -35,6 +35,7 @@ where
     pub(crate) async fn new(
         tenant_configurations: Vec<TenantConfiguration>,
         auth_resolver: Arc<dyn AuthorizerResolver<Claims>>,
+        bearer_token_resolver: Option<Arc<dyn BearerTokenResolver + Send + Sync>>,
     ) -> Result<OAuth2ResourceServer<Claims>, StartupError> {
         let authorizers = join_all(
             tenant_configurations
@@ -47,7 +48,8 @@ where
         .collect::<Result<Vec<_>, StartupError>>()?;
 
         Ok(OAuth2ResourceServer {
-            jwt_extractor: Arc::new(BearerTokenJwtExtractor {}),
+            bearer_token_resolver: bearer_token_resolver
+                .unwrap_or_else(|| Arc::new(DefaultBearerTokenResolver {})),
             authorizers,
             auth_resolver,
         })
@@ -57,7 +59,8 @@ where
         &self,
         mut request: Request<Body>,
     ) -> Result<Request<Body>, AuthError> {
-        let token = match self.jwt_extractor.extract_jwt(request.headers()) {
+        let req_ref = request_ref(&request);
+        let token = match self.bearer_token_resolver.resolve(&req_ref) {
             Ok(token) => token,
             Err(e) => {
                 debug!("JWT extraction failed: {}", e);

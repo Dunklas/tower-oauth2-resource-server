@@ -1,0 +1,13 @@
+[package]
+name = "custom-jwt-resolver"
+edition = "2021"
+
+[dependencies]
+tower-oauth2-resource-server = { path = "../../tower-oauth2-resource-server" }
+examples-util = { path = "../../examples-util" }
+
+axum = "0.8.4"
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
+log = { workspace = true }
+tower = { workspace = true }
+env_logger = { workspace = true }

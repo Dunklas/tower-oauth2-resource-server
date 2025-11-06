@@ -6,6 +6,7 @@ members = [
     "examples/salvo-example",
     "examples/tonic-example",
     "examples/custom-error-handler",
+    "examples/custom-jwt-resolver",
 ]
 resolver = "2"
 

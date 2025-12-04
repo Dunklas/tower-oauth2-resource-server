@@ -31,7 +31,10 @@ where
             &config.identifier, &config.claims_validation_spec
         );
 
-        let validator = Arc::new(OnlyJwtValidator::new(config.claims_validation_spec));
+        let validator = Arc::new(OnlyJwtValidator::new(
+            config.claims_validation_spec,
+            config.allowed_algorithms,
+        ));
 
         match config.kind {
             crate::tenant::TenantKind::JwksUrl {

@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 use jsonwebtoken::{
     Algorithm, DecodingKey, Validation, decode, decode_header,
-    jwk::{Jwk, JwkSet, KeyAlgorithm},
+    jwk::{Jwk, JwkSet},
 };
 use log::{info, warn};
 use serde::de::DeserializeOwned;
@@ -25,11 +25,11 @@ pub trait JwtValidator<Claims> {
 #[derive(Default)]
 struct OnlyJwtValidatorInner {
     decoding_keys: HashMap<String, DecodingKey>,
-    validations: HashMap<Algorithm, Validation>,
 }
 
 pub struct OnlyJwtValidator {
     claims_validation: ClaimsValidationSpec,
+    allowed_algorithms: HashSet<Algorithm>,
     inner: RwLock<OnlyJwtValidatorInner>,
 }
 
@@ -47,12 +47,14 @@ where
             .decoding_keys
             .get(&key_id)
             .ok_or(AuthError::InvalidKeyId)?;
-        let validation = inner
-            .validations
-            .get(&header.alg)
-            .ok_or(AuthError::UnsupportedAlgorithm(header.alg))?;
 
-        match decode::<Claims>(token.as_str(), decoding_key, validation) {
+        if !self.allowed_algorithms.contains(&header.alg) {
+            return Err(AuthError::UnsupportedAlgorithm(header.alg));
+        }
+
+        let validation = create_validation(&header.alg, &self.claims_validation);
+
+        match decode::<Claims>(token.as_str(), decoding_key, &validation) {
             Ok(result) => Ok(result.claims),
             Err(e) => Err(AuthError::ValidationFailed {
                 reason: e.into_kind(),
@@ -70,64 +72,49 @@ where
 impl JwksConsumer for OnlyJwtValidator {
     async fn receive_jwks(&self, jwks: JwkSet) {
         let mut inner = self.inner.write().unwrap();
-        if inner.update_decoding_keys(&jwks).is_ok() {
-            inner.update_validations(&jwks, &self.claims_validation);
-        }
+        let _ = inner.update_decoding_keys(&jwks);
     }
 }
 
 impl OnlyJwtValidator {
-    pub fn new(claims_validation: ClaimsValidationSpec) -> Self {
+    pub fn new(
+        claims_validation: ClaimsValidationSpec,
+        allowed_algorithms: HashSet<Algorithm>,
+    ) -> Self {
         Self {
             claims_validation,
+            allowed_algorithms,
             inner: Default::default(),
         }
     }
 }
 
+fn create_validation(alg: &Algorithm, claims_validation: &ClaimsValidationSpec) -> Validation {
+    let mut validation = Validation::new(*alg);
+    let mut required_claims = Vec::<&'static str>::new();
+    if let Some(iss) = &claims_validation.iss {
+        required_claims.push("iss");
+        validation.set_issuer(&[iss]);
+    }
+    if claims_validation.exp {
+        required_claims.push("exp");
+        validation.validate_exp = true;
+    }
+    if claims_validation.nbf {
+        required_claims.push("nbf");
+        validation.validate_nbf = true;
+    }
+    if !claims_validation.aud.is_empty() {
+        required_claims.push("aud");
+        validation.set_audience(&claims_validation.aud);
+    } else {
+        validation.validate_aud = false;
+    }
+    validation.set_required_spec_claims(&required_claims);
+    validation
+}
+
 impl OnlyJwtValidatorInner {
-    fn update_validations(&mut self, jwks: &JwkSet, claims_validation: &ClaimsValidationSpec) {
-        let algs = jwks
-            .keys
-            .iter()
-            .filter_map(|jwk| jwk.common.key_algorithm)
-            .filter_map(parse_key_alg)
-            .collect::<HashSet<_>>();
-        self.validations = algs
-            .into_iter()
-            .map(|alg| (alg, self.create_validation(&alg, claims_validation)))
-            .collect();
-    }
-
-    fn create_validation(
-        &self,
-        alg: &Algorithm,
-        claims_validation: &ClaimsValidationSpec,
-    ) -> Validation {
-        let mut validation = Validation::new(*alg);
-        let mut required_claims = Vec::<&'static str>::new();
-        if let Some(iss) = &claims_validation.iss {
-            required_claims.push("iss");
-            validation.set_issuer(&[iss]);
-        }
-        if claims_validation.exp {
-            required_claims.push("exp");
-            validation.validate_exp = true;
-        }
-        if claims_validation.nbf {
-            required_claims.push("nbf");
-            validation.validate_nbf = true;
-        }
-        if !claims_validation.aud.is_empty() {
-            required_claims.push("aud");
-            validation.set_audience(&claims_validation.aud);
-        } else {
-            validation.validate_aud = false;
-        }
-        validation.set_required_spec_claims(&required_claims);
-        validation
-    }
-
     fn update_decoding_keys(&mut self, jwks: &JwkSet) -> Result<(), JwkError> {
         let decoding_keys = jwks
             .keys
@@ -154,24 +141,6 @@ impl OnlyJwtValidatorInner {
     }
 }
 
-fn parse_key_alg(key_alg: KeyAlgorithm) -> Option<Algorithm> {
-    match key_alg {
-        KeyAlgorithm::HS256 => Some(Algorithm::HS256),
-        KeyAlgorithm::HS384 => Some(Algorithm::HS384),
-        KeyAlgorithm::HS512 => Some(Algorithm::HS512),
-        KeyAlgorithm::ES256 => Some(Algorithm::ES256),
-        KeyAlgorithm::ES384 => Some(Algorithm::ES384),
-        KeyAlgorithm::RS256 => Some(Algorithm::RS256),
-        KeyAlgorithm::RS384 => Some(Algorithm::RS384),
-        KeyAlgorithm::RS512 => Some(Algorithm::RS512),
-        KeyAlgorithm::PS256 => Some(Algorithm::PS256),
-        KeyAlgorithm::PS384 => Some(Algorithm::PS384),
-        KeyAlgorithm::PS512 => Some(Algorithm::PS512),
-        KeyAlgorithm::EdDSA => Some(Algorithm::EdDSA),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,7 +155,8 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     use crate::{
-        authorizer::jwks::JwksConsumer, error::AuthError, validation::ClaimsValidationSpec,
+        authorizer::jwks::JwksConsumer, error::AuthError, tenant::default_allowed_algorithms,
+        validation::ClaimsValidationSpec,
     };
 
     use super::{JwtValidator, OnlyJwtValidator};
@@ -469,7 +439,7 @@ ScHBAP/qVF3+Qfg9iKDMkg==
     async fn create_validator(
         claims_validation: ClaimsValidationSpec,
     ) -> Box<dyn JwtValidator<Claims>> {
-        let validator = OnlyJwtValidator::new(claims_validation);
+        let validator = OnlyJwtValidator::new(claims_validation, default_allowed_algorithms());
         let jwk: Jwk = serde_json::from_value(json!({
             "kty": "RSA",
             "use_": "sig",
@@ -495,5 +465,113 @@ ScHBAP/qVF3+Qfg9iKDMkg==
             .unwrap()
             .as_secs() as i64
             + sec) as u64
+    }
+
+    // Tests for RFC 7517 compliance - JWKS without `alg` field
+    // The `alg` field is optional per RFC 7517 Section 4.4
+
+    #[tokio::test]
+    async fn jwks_without_alg_field_should_work() {
+        // This simulates Azure AD and other providers that don't include `alg` in JWKS
+        let validator =
+            create_validator_without_alg(ClaimsValidationSpec::new(), default_allowed_algorithms())
+                .await;
+        let token = jwt_from(&serde_json::json!({}), Some(DEFAULT_KID.to_owned()));
+
+        let result: Result<Claims, _> = validator.validate(&UnverifiedJwt::new(token));
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn jwks_without_alg_field_validates_claims() {
+        let validator = create_validator_without_alg(
+            ClaimsValidationSpec::new().aud(&["https://expected-audience.com".to_owned()].to_vec()),
+            default_allowed_algorithms(),
+        )
+        .await;
+        let token = jwt_from(
+            &serde_json::json!({
+                "aud": "https://wrong-audience.com",
+            }),
+            Some(DEFAULT_KID.to_owned()),
+        );
+
+        let result: Result<Claims, _> = validator.validate(&UnverifiedJwt::new(token));
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            AuthError::ValidationFailed {
+                reason: ErrorKind::InvalidAudience
+            }
+        );
+    }
+
+    // Tests for allowed_algorithms configuration
+
+    #[tokio::test]
+    async fn disallowed_algorithm_should_be_rejected() {
+        // Configure validator to only allow ES256
+        let allowed = HashSet::from([Algorithm::ES256]);
+        let validator = create_validator_without_alg(ClaimsValidationSpec::new(), allowed).await;
+
+        // Token uses RS256 which is not in the allowed list
+        let token = jwt_from(&serde_json::json!({}), Some(DEFAULT_KID.to_owned()));
+
+        let result: Result<Claims, _> = validator.validate(&UnverifiedJwt::new(token));
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            AuthError::UnsupportedAlgorithm(Algorithm::RS256)
+        );
+    }
+
+    #[tokio::test]
+    async fn allowed_algorithm_should_be_accepted() {
+        // Configure validator to only allow RS256
+        let allowed = HashSet::from([Algorithm::RS256]);
+        let validator = create_validator_without_alg(ClaimsValidationSpec::new(), allowed).await;
+
+        // Token uses RS256 which is in the allowed list
+        let token = jwt_from(&serde_json::json!({}), Some(DEFAULT_KID.to_owned()));
+
+        let result: Result<Claims, _> = validator.validate(&UnverifiedJwt::new(token));
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn default_allowed_algorithms_includes_rs256() {
+        // Default configuration should allow RS256
+        let validator =
+            create_validator_without_alg(ClaimsValidationSpec::new(), default_allowed_algorithms())
+                .await;
+        let token = jwt_from(&serde_json::json!({}), Some(DEFAULT_KID.to_owned()));
+
+        let result: Result<Claims, _> = validator.validate(&UnverifiedJwt::new(token));
+
+        assert!(result.is_ok());
+    }
+
+    /// Creates a validator with JWKS that doesn't include the `alg` field,
+    /// simulating Azure AD and other providers.
+    async fn create_validator_without_alg(
+        claims_validation: ClaimsValidationSpec,
+        allowed_algorithms: HashSet<Algorithm>,
+    ) -> Box<dyn JwtValidator<Claims>> {
+        let validator = OnlyJwtValidator::new(claims_validation, allowed_algorithms);
+        // Note: no "alg" field - this is valid per RFC 7517 Section 4.4
+        let jwk: Jwk = serde_json::from_value(json!({
+            "kty": "RSA",
+            "use": "sig",
+            "kid": DEFAULT_KID.to_owned(),
+            "n": TEST_RSA_MODULUS.to_string(),
+            "e": TEST_RSA_EXPONENT.to_string(),
+        }))
+        .unwrap();
+        validator.receive_jwks(JwkSet { keys: vec![jwk] }).await;
+        Box::new(validator)
     }
 }

@@ -1,6 +1,6 @@
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
-use jsonwebtoken::jwk::JwkSet;
+use jsonwebtoken::{Algorithm, jwk::JwkSet};
 use mockall_double::double;
 use url::Url;
 
@@ -8,6 +8,26 @@ use crate::{error::StartupError, oidc::OidcConfig, validation::ClaimsValidationS
 
 #[double]
 use crate::oidc::OidcDiscovery;
+
+/// Returns the default set of allowed algorithms for JWT validation.
+///
+/// This includes all standard asymmetric algorithms that are considered secure.
+/// HMAC algorithms (HS256, HS384, HS512) are excluded by default as they are
+/// symmetric and typically not appropriate for OAuth2/OIDC flows where the
+/// authorization server and resource server are separate entities.
+pub fn default_allowed_algorithms() -> HashSet<Algorithm> {
+    HashSet::from([
+        Algorithm::RS256,
+        Algorithm::RS384,
+        Algorithm::RS512,
+        Algorithm::ES256,
+        Algorithm::ES384,
+        Algorithm::PS256,
+        Algorithm::PS384,
+        Algorithm::PS512,
+        Algorithm::EdDSA,
+    ])
+}
 
 #[derive(Debug, Clone)]
 pub(crate) enum TenantKind {
@@ -24,6 +44,7 @@ pub(crate) enum TenantKind {
 pub struct TenantConfiguration {
     pub(crate) identifier: String,
     pub(crate) claims_validation_spec: ClaimsValidationSpec,
+    pub(crate) allowed_algorithms: HashSet<Algorithm>,
     pub(crate) kind: TenantKind,
 }
 
@@ -65,6 +86,7 @@ pub struct TenantConfigurationBuilder {
     audiences: Vec<String>,
     jwk_set_refresh_interval: Option<Duration>,
     claims_validation_spec: Option<ClaimsValidationSpec>,
+    allowed_algorithms: Option<HashSet<Algorithm>>,
 }
 
 impl TenantConfigurationBuilder {
@@ -76,6 +98,7 @@ impl TenantConfigurationBuilder {
             audiences: Vec::new(),
             jwk_set_refresh_interval: None,
             claims_validation_spec: None,
+            allowed_algorithms: None,
         }
     }
 
@@ -128,6 +151,18 @@ impl TenantConfigurationBuilder {
         self
     }
 
+    /// Set the allowed algorithms for JWT validation.
+    ///
+    /// By default, all standard asymmetric algorithms are allowed (RS256, RS384, RS512,
+    /// ES256, ES384, PS256, PS384, PS512, EdDSA). HMAC algorithms are excluded by default.
+    ///
+    /// Use this method to restrict the allowed algorithms if your authorization server
+    /// only uses specific algorithms.
+    pub fn allowed_algorithms(mut self, algorithms: &[Algorithm]) -> Self {
+        self.allowed_algorithms = Some(algorithms.iter().copied().collect());
+        self
+    }
+
     /// Construct a TenantConfiguration.
     pub async fn build(self) -> Result<TenantConfiguration, StartupError> {
         let identifier = match self.identifier {
@@ -162,6 +197,10 @@ impl TenantConfigurationBuilder {
             .claims_validation_spec
             .unwrap_or(recommended_claims_spec(&self.audiences, &oidc_config));
 
+        let allowed_algorithms = self
+            .allowed_algorithms
+            .unwrap_or_else(default_allowed_algorithms);
+
         let jwks_url = match jwks_url {
             Some(jwks_url) => jwks_url,
             None => match oidc_config {
@@ -184,6 +223,7 @@ impl TenantConfigurationBuilder {
         Ok(TenantConfiguration {
             identifier,
             claims_validation_spec,
+            allowed_algorithms,
             kind,
         })
     }
@@ -193,6 +233,7 @@ pub struct TenantStaticConfigurationBuilder {
     identifier: Option<String>,
     audiences: Vec<String>,
     claims_validation_spec: Option<ClaimsValidationSpec>,
+    allowed_algorithms: Option<HashSet<Algorithm>>,
     jwks: String,
 }
 
@@ -203,6 +244,7 @@ impl TenantStaticConfigurationBuilder {
             identifier: None,
             audiences: Vec::new(),
             claims_validation_spec: None,
+            allowed_algorithms: None,
         }
     }
 
@@ -235,6 +277,18 @@ impl TenantStaticConfigurationBuilder {
         self
     }
 
+    /// Set the allowed algorithms for JWT validation.
+    ///
+    /// By default, all standard asymmetric algorithms are allowed (RS256, RS384, RS512,
+    /// ES256, ES384, PS256, PS384, PS512, EdDSA). HMAC algorithms are excluded by default.
+    ///
+    /// Use this method to restrict the allowed algorithms if your authorization server
+    /// only uses specific algorithms.
+    pub fn allowed_algorithms(mut self, algorithms: &[Algorithm]) -> Self {
+        self.allowed_algorithms = Some(algorithms.iter().copied().collect());
+        self
+    }
+
     /// Construct a TenantConfiguration.
     pub fn build(self) -> Result<TenantConfiguration, StartupError> {
         let identifier = self.identifier.unwrap_or_else(|| String::from("static"));
@@ -242,6 +296,10 @@ impl TenantStaticConfigurationBuilder {
         let claims_validation_spec = self
             .claims_validation_spec
             .unwrap_or(recommended_claims_spec(&self.audiences, &None));
+
+        let allowed_algorithms = self
+            .allowed_algorithms
+            .unwrap_or_else(default_allowed_algorithms);
 
         let jwks = serde_json::from_str(&self.jwks)
             .map_err(|e| StartupError::InvalidParameter(format!("Failed to parse JWKS: {e}")))?;
@@ -251,6 +309,7 @@ impl TenantStaticConfigurationBuilder {
         Ok(TenantConfiguration {
             identifier,
             claims_validation_spec,
+            allowed_algorithms,
             kind,
         })
     }

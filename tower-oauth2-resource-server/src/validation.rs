@@ -10,9 +10,7 @@ pub struct ClaimsValidationSpec {
 
 impl ClaimsValidationSpec {
     pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
+        Self::default()
     }
 
     pub fn recommended(issuer: &str, audiences: &Vec<String>) -> Self {

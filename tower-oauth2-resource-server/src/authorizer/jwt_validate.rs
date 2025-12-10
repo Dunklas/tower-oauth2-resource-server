@@ -53,10 +53,6 @@ where
             .get(&key_id)
             .ok_or(AuthError::InvalidKeyId)?;
 
-        if !self.allowed_algorithms.contains(&header.alg) {
-            return Err(AuthError::UnsupportedAlgorithm(header.alg));
-        }
-
         let jwk_alg = match jwk_info.alg {
             Some(jwk_alg) => {
                 if let Some(jwk_alg) = parse_jwk_alg(&jwk_alg) {
@@ -75,6 +71,11 @@ where
         }
 
         let validation_alg = jwk_alg.unwrap_or(header.alg);
+
+        if !self.allowed_algorithms.contains(&validation_alg) {
+            return Err(AuthError::UnsupportedAlgorithm(validation_alg));
+        }
+
         let validation = create_validation(&validation_alg, &self.claims_validation);
 
         match decode::<Claims>(token.as_str(), &jwk_info.decoding_key, &validation) {

@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
 use jsonwebtoken::{
     Algorithm, DecodingKey, Validation, decode, decode_header,
-    jwk::{Jwk, JwkSet},
+    jwk::{Jwk, JwkSet, KeyAlgorithm},
 };
 use log::{info, warn};
 use serde::de::DeserializeOwned;
@@ -22,9 +22,14 @@ pub trait JwtValidator<Claims> {
     fn has_kid(&self, kid: &str) -> bool;
 }
 
+struct JwkData {
+    decoding_key: DecodingKey,
+    alg: Option<KeyAlgorithm>,
+}
+
 #[derive(Default)]
 struct OnlyJwtValidatorInner {
-    decoding_keys: HashMap<String, DecodingKey>,
+    jwk_by_kid: HashMap<String, JwkData>,
 }
 
 pub struct OnlyJwtValidator {
@@ -43,8 +48,8 @@ where
 
         let inner = self.inner.read().unwrap();
 
-        let decoding_key = inner
-            .decoding_keys
+        let jwk_info = inner
+            .jwk_by_kid
             .get(&key_id)
             .ok_or(AuthError::InvalidKeyId)?;
 
@@ -52,9 +57,27 @@ where
             return Err(AuthError::UnsupportedAlgorithm(header.alg));
         }
 
-        let validation = create_validation(&header.alg, &self.claims_validation);
+        let jwk_alg = match jwk_info.alg {
+            Some(jwk_alg) => {
+                if let Some(jwk_alg) = parse_jwk_alg(&jwk_alg) {
+                    Some(jwk_alg)
+                } else {
+                    return Err(AuthError::InvalidJwkAlgorithm(jwk_alg));
+                }
+            }
+            None => None,
+        };
 
-        match decode::<Claims>(token.as_str(), decoding_key, &validation) {
+        if let Some(jwk_alg) = jwk_alg {
+            if jwk_alg != header.alg {
+                return Err(AuthError::MismatchingAlgorithm(header.alg, jwk_alg));
+            }
+        }
+
+        let validation_alg = jwk_alg.unwrap_or(header.alg);
+        let validation = create_validation(&validation_alg, &self.claims_validation);
+
+        match decode::<Claims>(token.as_str(), &jwk_info.decoding_key, &validation) {
             Ok(result) => Ok(result.claims),
             Err(e) => Err(AuthError::ValidationFailed {
                 reason: e.into_kind(),
@@ -64,7 +87,7 @@ where
 
     fn has_kid(&self, kid: &str) -> bool {
         let inner = self.inner.read().unwrap();
-        inner.decoding_keys.contains_key(kid)
+        inner.jwk_by_kid.contains_key(kid)
     }
 }
 
@@ -114,6 +137,21 @@ fn create_validation(alg: &Algorithm, claims_validation: &ClaimsValidationSpec) 
     validation
 }
 
+fn parse_jwk_alg(key_alg: &KeyAlgorithm) -> Option<Algorithm> {
+    match key_alg {
+        KeyAlgorithm::RS256 => Some(Algorithm::RS256),
+        KeyAlgorithm::RS384 => Some(Algorithm::RS384),
+        KeyAlgorithm::RS512 => Some(Algorithm::RS512),
+        KeyAlgorithm::PS256 => Some(Algorithm::PS256),
+        KeyAlgorithm::PS384 => Some(Algorithm::PS384),
+        KeyAlgorithm::PS512 => Some(Algorithm::PS512),
+        KeyAlgorithm::ES256 => Some(Algorithm::ES256),
+        KeyAlgorithm::ES384 => Some(Algorithm::ES384),
+        KeyAlgorithm::EdDSA => Some(Algorithm::EdDSA),
+        _ => None,
+    }
+}
+
 impl OnlyJwtValidatorInner {
     fn update_decoding_keys(&mut self, jwks: &JwkSet) -> Result<(), JwkError> {
         let decoding_keys = jwks
@@ -123,7 +161,7 @@ impl OnlyJwtValidatorInner {
             .collect::<Result<HashMap<_, _>, _>>();
         match decoding_keys {
             Ok(decoding_keys) => {
-                self.decoding_keys = decoding_keys;
+                self.jwk_by_kid = decoding_keys;
                 info!("Successfully updated JWK set");
                 Ok(())
             }
@@ -134,10 +172,11 @@ impl OnlyJwtValidatorInner {
         }
     }
 
-    fn parse_jwk(&self, jwk: &Jwk) -> Result<(String, DecodingKey), JwkError> {
+    fn parse_jwk(&self, jwk: &Jwk) -> Result<(String, JwkData), JwkError> {
         let key_id = jwk.common.key_id.as_ref().ok_or(JwkError::MissingKeyId)?;
         let decoding_key = DecodingKey::from_jwk(jwk).map_err(|_| JwkError::DecodingFailed)?;
-        Ok((key_id.clone(), decoding_key))
+        let alg = jwk.common.key_algorithm;
+        Ok((key_id.clone(), JwkData { decoding_key, alg }))
     }
 }
 
@@ -436,6 +475,23 @@ ScHBAP/qVF3+Qfg9iKDMkg==
         );
     }
 
+    #[tokio::test]
+    async fn jwk_alg_matches_jwt_header_alg() {
+        let validator = create_validator(ClaimsValidationSpec::new()).await;
+
+        let mut header = Header::new(jsonwebtoken::Algorithm::RS384);
+        header.kid = Some(DEFAULT_KID.to_owned());
+        let token = encode(&header, &serde_json::json!({}), &ENCODING_KEY).unwrap();
+
+        let result: Result<Claims, _> = validator.validate(&UnverifiedJwt::new(token));
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            AuthError::MismatchingAlgorithm(Algorithm::RS384, Algorithm::RS256)
+        );
+    }
+
     async fn create_validator(
         claims_validation: ClaimsValidationSpec,
     ) -> Box<dyn JwtValidator<Claims>> {
@@ -467,12 +523,8 @@ ScHBAP/qVF3+Qfg9iKDMkg==
             + sec) as u64
     }
 
-    // Tests for RFC 7517 compliance - JWKS without `alg` field
-    // The `alg` field is optional per RFC 7517 Section 4.4
-
     #[tokio::test]
     async fn jwks_without_alg_field_should_work() {
-        // This simulates Azure AD and other providers that don't include `alg` in JWKS
         let validator =
             create_validator_without_alg(ClaimsValidationSpec::new(), default_allowed_algorithms())
                 .await;

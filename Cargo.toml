@@ -12,6 +12,6 @@ resolver = "2"
 
 [workspace.dependencies]
 log = "0.4"
-tokio = "1.47"
+tokio = "1.49"
 tower = "0.5"
 env_logger = "0.11"

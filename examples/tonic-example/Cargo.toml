@@ -7,7 +7,7 @@ tower-oauth2-resource-server = { path = "../../tower-oauth2-resource-server" }
 examples-util = { path = "../../examples-util" }
 
 tonic = "0.14.2"
-prost = "0.14.1"
+prost = "0.14.3"
 tonic-prost = "0.14.2"
 tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
 log = { workspace = true }

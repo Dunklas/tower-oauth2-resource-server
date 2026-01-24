@@ -1,5 +1,6 @@
 use std::{collections::HashSet, error::Error};
 
+use reqwest::Client;
 use serde::Deserialize;
 use url::Url;
 
@@ -21,10 +22,13 @@ pub(crate) struct OidcDiscovery {}
 #[cfg_attr(test, automock)]
 impl OidcDiscovery {
     #[cfg_attr(test, allow(dead_code))]
-    pub async fn discover(issuer_url: &Url) -> Result<OidcConfig, Box<dyn Error>> {
+    pub async fn discover(
+        issuer_url: &Url,
+        http_client: Client,
+    ) -> Result<OidcConfig, Box<dyn Error>> {
         let paths = get_paths(issuer_url)?;
         for path in paths {
-            if let Ok(response) = reqwest::get(path).await {
+            if let Ok(response) = http_client.get(path).send().await {
                 if let Ok(oidc_config) = response.json().await {
                     return Ok(oidc_config);
                 }

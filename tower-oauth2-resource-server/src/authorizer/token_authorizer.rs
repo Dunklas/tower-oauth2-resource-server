@@ -40,8 +40,10 @@ where
             crate::tenant::TenantKind::JwksUrl {
                 jwks_url,
                 jwks_refresh_interval,
+                http_client,
             } => {
-                let mut jwks_producer = TimerJwksProducer::new(jwks_url, jwks_refresh_interval);
+                let mut jwks_producer =
+                    TimerJwksProducer::new(jwks_url, jwks_refresh_interval, http_client);
                 jwks_producer.add_consumer(validator.clone());
                 jwks_producer.start();
             }

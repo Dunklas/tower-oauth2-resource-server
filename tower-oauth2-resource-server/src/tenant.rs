@@ -2,6 +2,7 @@ use std::{collections::HashSet, time::Duration};
 
 use jsonwebtoken::{Algorithm, jwk::JwkSet};
 use mockall_double::double;
+use reqwest::Client;
 use url::Url;
 
 use crate::{error::StartupError, oidc::OidcConfig, validation::ClaimsValidationSpec};
@@ -34,6 +35,7 @@ pub(crate) enum TenantKind {
     JwksUrl {
         jwks_url: Url,
         jwks_refresh_interval: Duration,
+        http_client: Client,
     },
     Static {
         jwks: JwkSet,
@@ -83,6 +85,7 @@ pub struct TenantConfigurationBuilder {
     issuer_url: String,
     identifier: Option<String>,
     jwks_url: Option<String>,
+    http_client: Option<Client>,
     audiences: Vec<String>,
     jwk_set_refresh_interval: Option<Duration>,
     claims_validation_spec: Option<ClaimsValidationSpec>,
@@ -95,6 +98,7 @@ impl TenantConfigurationBuilder {
             issuer_url: issuer_url.into(),
             identifier: None,
             jwks_url: None,
+            http_client: None,
             audiences: Vec::new(),
             jwk_set_refresh_interval: None,
             claims_validation_spec: None,
@@ -121,6 +125,16 @@ impl TenantConfigurationBuilder {
     /// independently from the authorization server.
     pub fn jwks_url(mut self, jwks_url: impl Into<String>) -> Self {
         self.jwks_url = Some(jwks_url.into());
+        self
+    }
+
+    /// Set the reqwest HTTP client to use for fetching public keys and OIDC
+    /// discovery.
+    ///
+    /// Provide a HTTP client when you need to configure authentification,
+    /// CA certificates, and so on to access the authorization server.
+    pub fn http_client(mut self, http_client: Client) -> Self {
+        self.http_client = Some(http_client);
         self
     }
 
@@ -183,11 +197,17 @@ impl TenantConfigurationBuilder {
             })
             .transpose()?;
 
+        let http_client = self.http_client.unwrap_or_else(|| {
+            Client::builder()
+                .build()
+                .expect("Could not create reqwest client")
+        });
+
         let oidc_config = if jwks_url.is_some() {
             None
         } else {
             Some(
-                OidcDiscovery::discover(&issuer_url)
+                OidcDiscovery::discover(&issuer_url, http_client.clone())
                     .await
                     .map_err(|e| StartupError::OidcDiscoveryFailed(e.to_string()))?,
             )
@@ -218,6 +238,7 @@ impl TenantConfigurationBuilder {
             jwks_refresh_interval: self
                 .jwk_set_refresh_interval
                 .unwrap_or(Duration::from_secs(60)),
+            http_client,
         };
 
         Ok(TenantConfiguration {
@@ -347,7 +368,9 @@ mod tests {
     async fn test_should_perform_oidc_discovery() {
         let _m = MTX.lock();
         let ctx = MockOidcDiscovery::discover_context();
-        ctx.expect().returning(|_| Ok(default_oidc_config())).once();
+        ctx.expect()
+            .returning(|_, _| Ok(default_oidc_config()))
+            .once();
 
         let result = TenantConfigurationBuilder::new("http://some-issuer.com")
             .build()
@@ -373,7 +396,9 @@ mod tests {
     async fn test_should_use_issuer_as_identifier() {
         let _m = MTX.lock();
         let ctx = MockOidcDiscovery::discover_context();
-        ctx.expect().returning(|_| Ok(default_oidc_config())).once();
+        ctx.expect()
+            .returning(|_, _| Ok(default_oidc_config()))
+            .once();
 
         let result = TenantConfigurationBuilder::new("http://some-issuer.com")
             .build()
@@ -388,7 +413,9 @@ mod tests {
     async fn test_custom_identifier_overrides_issuer() {
         let _m = MTX.lock();
         let ctx = MockOidcDiscovery::discover_context();
-        ctx.expect().returning(|_| Ok(default_oidc_config())).once();
+        ctx.expect()
+            .returning(|_, _| Ok(default_oidc_config()))
+            .once();
 
         let result = TenantConfigurationBuilder::new("http://some-issuer.com")
             .identifier("custom-identifier")
@@ -437,7 +464,9 @@ mod tests {
     async fn test_provides_recommended_claims_validation_spec() {
         let _m = MTX.lock();
         let ctx = MockOidcDiscovery::discover_context();
-        ctx.expect().returning(|_| Ok(default_oidc_config())).once();
+        ctx.expect()
+            .returning(|_, _| Ok(default_oidc_config()))
+            .once();
 
         let result = TenantConfigurationBuilder::new("https://some-issuer.com")
             .audiences(&["https://some-resource-server.com"])
@@ -458,7 +487,9 @@ mod tests {
     async fn test_custom_claims_validation_spec_overrides_recommended() {
         let _m = MTX.lock();
         let ctx = MockOidcDiscovery::discover_context();
-        ctx.expect().returning(|_| Ok(default_oidc_config())).once();
+        ctx.expect()
+            .returning(|_, _| Ok(default_oidc_config()))
+            .once();
 
         let claims_validation = ClaimsValidationSpec::new().exp(false);
         let result = TenantConfigurationBuilder::new("https://some-issuer.com")

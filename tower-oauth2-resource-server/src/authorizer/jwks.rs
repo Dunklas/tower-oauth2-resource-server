@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use jsonwebtoken::jwk::JwkSet;
 use log::warn;
-use reqwest::Url;
+use reqwest::{Client, Url};
 use std::{sync::Arc, time::Duration};
 use tokio::time;
 
@@ -21,14 +21,16 @@ pub struct TimerJwksProducer {
     jwks_url: Url,
     refresh_interval: Duration,
     receivers: Vec<Arc<dyn JwksConsumer>>,
+    http_client: Client,
 }
 
 impl TimerJwksProducer {
-    pub fn new(jwks_url: Url, refresh_interval: Duration) -> Self {
+    pub fn new(jwks_url: Url, refresh_interval: Duration, http_client: Client) -> Self {
         Self {
             jwks_url,
             refresh_interval,
             receivers: Vec::new(),
+            http_client,
         }
     }
 }
@@ -43,6 +45,7 @@ impl JwksProducer for TimerJwksProducer {
             self.jwks_url.clone(),
             self.refresh_interval,
             self.receivers.clone(),
+            self.http_client.clone(),
         ));
     }
 }
@@ -51,11 +54,12 @@ async fn fetch_jwks_job(
     jwks_url: Url,
     refresh_interval: Duration,
     consumers: Vec<Arc<dyn JwksConsumer>>,
+    http_client: Client,
 ) {
     let mut interval = time::interval(refresh_interval);
     loop {
         interval.tick().await;
-        match fetch_jwks(jwks_url.clone()).await {
+        match fetch_jwks(jwks_url.clone(), http_client.clone()).await {
             Ok(jwks) => {
                 for consumer in &consumers {
                     consumer.receive_jwks(jwks.clone()).await;
@@ -68,8 +72,10 @@ async fn fetch_jwks_job(
     }
 }
 
-async fn fetch_jwks(jwks_url: Url) -> Result<JwkSet, JwkError> {
-    let response = reqwest::get(jwks_url)
+async fn fetch_jwks(jwks_url: Url, http_client: Client) -> Result<JwkSet, JwkError> {
+    let response = http_client
+        .get(jwks_url)
+        .send()
         .await
         .map_err(|_| JwkError::FetchFailed)?;
     let parsed = response
@@ -126,6 +132,9 @@ mod tests {
                 .parse::<Url>()
                 .unwrap(),
             Duration::from_millis(5),
+            Client::builder()
+                .build()
+                .expect("Could not create reqwest client"),
         );
         producer.add_consumer(consumer.clone());
         producer.start();

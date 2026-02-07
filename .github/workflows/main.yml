@@ -47,6 +47,7 @@ jobs:
 
   report-duration:
     runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.head.repo.full_name == 'Dunklas/tower-oauth2-resource-server' }}
     needs: [verify, build-stable, build-msrv]
     steps:
       - uses: DeviesDevelopment/workflow-timer@v0.3.1

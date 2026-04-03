@@ -9,7 +9,7 @@ readme = "README.md"
 version = "0.11.1"
 
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.88.0"
 exclude = ["tests"]
 
 [dependencies]

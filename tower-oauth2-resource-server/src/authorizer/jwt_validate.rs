@@ -64,10 +64,10 @@ where
             None => None,
         };
 
-        if let Some(jwk_alg) = jwk_alg {
-            if jwk_alg != header.alg {
-                return Err(AuthError::MismatchingAlgorithm(header.alg, jwk_alg));
-            }
+        if let Some(jwk_alg) = jwk_alg
+            && jwk_alg != header.alg
+        {
+            return Err(AuthError::MismatchingAlgorithm(header.alg, jwk_alg));
         }
 
         let validation_alg = jwk_alg.unwrap_or(header.alg);

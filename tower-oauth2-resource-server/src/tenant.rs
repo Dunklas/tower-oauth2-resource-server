@@ -346,10 +346,10 @@ fn recommended_claims_spec(
     }
 
     if let Some(config) = &oidc_config {
-        if let Some(claims_supported) = &config.claims_supported {
-            if claims_supported.contains(&"nbf".to_owned()) {
-                claims_spec = claims_spec.nbf(true);
-            }
+        if let Some(claims_supported) = &config.claims_supported
+            && claims_supported.contains(&"nbf".to_owned())
+        {
+            claims_spec = claims_spec.nbf(true);
         }
         claims_spec = claims_spec.iss(config.issuer.as_str());
     }

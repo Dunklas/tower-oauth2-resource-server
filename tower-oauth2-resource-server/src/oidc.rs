@@ -28,10 +28,10 @@ impl OidcDiscovery {
     ) -> Result<OidcConfig, Box<dyn Error>> {
         let paths = get_paths(issuer_url)?;
         for path in paths {
-            if let Ok(response) = http_client.get(path).send().await {
-                if let Ok(oidc_config) = response.json().await {
-                    return Ok(oidc_config);
-                }
+            if let Ok(response) = http_client.get(path).send().await
+                && let Ok(oidc_config) = response.json().await
+            {
+                return Ok(oidc_config);
             }
         }
         Err("Failed to fetch OIDC configuration".into())

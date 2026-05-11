@@ -43,8 +43,8 @@ impl<Claims> AuthorizerResolver<Claims> for IssuerAuthorizerResolver {
     ) -> Option<&'a Authorizer<Claims>> {
         let claims = unverified_jwt.claims()?;
         let issuer = claims.get("iss")?.as_str()?;
-        println!("{:?}", claims);
-        println!(
+        log::debug!("{:?}", claims);
+        log::debug!(
             "{:?}",
             authorizers
                 .iter()

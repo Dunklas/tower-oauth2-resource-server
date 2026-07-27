@@ -14,7 +14,7 @@ exclude = ["tests"]
 
 [dependencies]
 async-trait = "0.1"
-base64 = "0.22"
+base64 = "0.23"
 futures-util = "0.3"
 http = "1.4"
 jsonwebtoken = { version = "10.4", default-features = false }

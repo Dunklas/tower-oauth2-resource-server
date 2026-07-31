@@ -25,7 +25,7 @@ impl UnverifiedJwt {
 
     pub fn claims(&self) -> Option<serde_json::Value> {
         let claims_b64 = self.token.split('.').nth(1)?;
-        let claims_bytes = base64::Engine::decode(&BASE64_STANDARD_NO_PAD, claims_b64).unwrap();
+        let claims_bytes = base64::Engine::decode(&BASE64_STANDARD_NO_PAD, claims_b64).ok()?;
         let claims_str = String::from_utf8(claims_bytes).ok()?;
         serde_json::from_str(&claims_str).ok()?
     }
@@ -65,5 +65,12 @@ mod tests {
               "iat": 1516239022
             }))
         );
+    }
+
+    #[test]
+    fn malformed_claims_return_none() {
+        let claims = UnverifiedJwt::new("a.%ff.c").claims();
+
+        assert!(claims.is_none());
     }
 }

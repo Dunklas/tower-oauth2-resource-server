@@ -29,8 +29,15 @@ impl OidcDiscovery {
         let paths = get_paths(issuer_url)?;
         for path in paths {
             if let Ok(response) = http_client.get(path).send().await
-                && let Ok(oidc_config) = response.json().await
+                && let Ok(oidc_config) = response.json::<OidcConfig>().await
             {
+                if oidc_config.issuer != issuer_url.as_str() {
+                    return Err(format!(
+                        "OIDC issuer mismatch: expected {}, got {}",
+                        issuer_url, oidc_config.issuer
+                    )
+                    .into());
+                }
                 return Ok(oidc_config);
             }
         }
@@ -81,9 +88,14 @@ fn get_paths(issuer_url: &Url) -> Result<HashSet<Url>, Box<dyn Error>> {
 mod tests {
     use std::collections::HashSet;
 
+    use reqwest::Client;
     use url::Url;
+    use wiremock::{
+        Mock, MockServer, ResponseTemplate,
+        matchers::{method, path},
+    };
 
-    use super::get_paths;
+    use super::{OidcDiscovery, get_paths};
 
     #[test]
     fn test_get_paths_with_path() {
@@ -179,5 +191,51 @@ mod tests {
                 "https://authorization-server.com/.well-known/oauth-authorization-server"
             )
         );
+    }
+
+    #[tokio::test]
+    async fn test_discover_accepts_matching_issuer() {
+        let mock_server = MockServer::start().await;
+        let issuer_url = mock_server.uri().parse::<Url>().unwrap();
+        mock_discovery_document(&mock_server, issuer_url.as_str()).await;
+
+        let result = OidcDiscovery::discover(&issuer_url, Client::new()).await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().issuer, issuer_url.as_str());
+    }
+
+    #[tokio::test]
+    async fn test_discover_rejects_mismatched_issuer() {
+        let mock_server = MockServer::start().await;
+        let issuer_url = mock_server.uri().parse::<Url>().unwrap();
+        mock_discovery_document(&mock_server, "https://other-issuer.example.com").await;
+
+        let result = OidcDiscovery::discover(&issuer_url, Client::new()).await;
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            format!(
+                "OIDC issuer mismatch: expected {}, got https://other-issuer.example.com",
+                issuer_url
+            )
+        );
+    }
+
+    async fn mock_discovery_document(mock_server: &MockServer, issuer: &str) {
+        for well_known_path in [
+            "/.well-known/openid-configuration",
+            "/.well-known/oauth-authorization-server",
+        ] {
+            Mock::given(method("GET"))
+                .and(path(well_known_path))
+                .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                    "issuer": issuer,
+                    "jwks_uri": format!("{}/jwks", mock_server.uri())
+                })))
+                .mount(mock_server)
+                .await;
+        }
     }
 }

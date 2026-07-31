@@ -478,7 +478,7 @@ mod tests {
             result.unwrap().claims_validation_spec,
             ClaimsValidationSpec::new()
                 .exp(true)
-                .iss("http://some-issuer.com")
+                .iss("https://some-issuer.com")
                 .aud(&vec!["https://some-resource-server.com".to_owned()])
         );
     }
@@ -565,7 +565,7 @@ mod tests {
     fn default_oidc_config() -> OidcConfig {
         OidcConfig {
             jwks_uri: "http://some-issuer.com/jwks".parse::<Url>().unwrap(),
-            issuer: "http://some-issuer.com".to_owned(),
+            issuer: "https://some-issuer.com".to_owned(),
             claims_supported: None,
         }
     }

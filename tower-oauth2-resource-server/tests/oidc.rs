@@ -192,6 +192,27 @@ async fn unauthorized_on_invalid_authorization() {
 }
 
 #[tokio::test]
+async fn unauthorized_on_malformed_jwt_claims_with_issuer_resolver() {
+    let ctx = TestContext::builder()
+        .with_tenant_configuration(TenantInput::Oidc(
+            OidcOptions::default().issuer_path("/auth-server"),
+        ))
+        .with_tenant_configuration(TenantInput::Oidc(
+            OidcOptions::default().issuer_path("/another-auth-server"),
+        ))
+        .build()
+        .await;
+    let mut service = ServiceBuilder::new()
+        .layer(ctx.create_service().await.into_layer())
+        .service_fn(echo);
+
+    let request = request_with_headers(vec![(AUTHORIZATION, "Bearer a.%ff.c")]);
+
+    let response = service.ready().await.unwrap().call(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
 async fn unauthorized_on_expired_token() {
     let ctx = TestContext::builder()
         .with_tenant_configuration(TenantInput::Oidc(OidcOptions::default()))

@@ -64,6 +64,9 @@ impl TenantConfiguration {
     /// - `https://authorization-server.com/.well-known/openid-configuration/issuer`
     /// - `https://authorization-server.com/.well-known/oauth-authorization-server/issuer`
     ///
+    /// The discovered provider configuration must contain an `issuer` value that
+    /// exactly matches `issuer_url`; otherwise startup will fail.
+    ///
     /// A consequence of the self-configuration is that the authorization server
     /// must be available when the middleware is started.
     /// In cases where the middleware must be able to start independently from

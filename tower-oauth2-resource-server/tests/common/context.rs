@@ -103,11 +103,7 @@ impl<'a> TestContext {
 
     pub fn valid_jwt(&self) -> JwtBuilder {
         JwtBuilder::new()
-            .iss(format!(
-                "{}{}",
-                &self.mock_server.uri(),
-                DEFAULT_ISSUER_PATH
-            ))
+            .iss(format!("{}{}", self.mock_server.uri(), DEFAULT_ISSUER_PATH))
             .subject("someone@example.com")
             .nbf(
                 SystemTime::now()

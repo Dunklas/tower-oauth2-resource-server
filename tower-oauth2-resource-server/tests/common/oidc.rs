@@ -17,8 +17,8 @@ pub async fn mock_oidc(mock_server: &MockServer, issuer_path: &str) {
             issuer_path
         )))
         .respond_with(ResponseTemplate::new(200).set_body_json(OpenIdConfig {
-            issuer: format!("{}{}", &mock_server.uri(), issuer_path),
-            jwks_uri: format!("{}{}/jwks", &mock_server.uri(), issuer_path),
+            issuer: format!("{}{}", mock_server.uri(), issuer_path),
+            jwks_uri: format!("{}{}/jwks", mock_server.uri(), issuer_path),
         }))
         .mount(mock_server)
         .await;

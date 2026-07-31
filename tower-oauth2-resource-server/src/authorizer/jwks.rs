@@ -128,7 +128,7 @@ mod tests {
 
         let consumer = Arc::new(TestConsumer::new());
         let mut producer = TimerJwksProducer::new(
-            format!("{}/jwks.json", &mock_server.uri())
+            format!("{}/jwks.json", mock_server.uri())
                 .parse::<Url>()
                 .unwrap(),
             Duration::from_millis(5),

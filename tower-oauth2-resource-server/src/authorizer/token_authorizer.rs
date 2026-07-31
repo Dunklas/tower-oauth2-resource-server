@@ -28,7 +28,7 @@ where
     pub(crate) async fn new(config: TenantConfiguration) -> Result<Self, StartupError> {
         info!(
             "Authorizer '{}' will validate the following claims: {}",
-            &config.identifier, &config.claims_validation_spec
+            config.identifier, config.claims_validation_spec
         );
 
         let validator = Arc::new(OnlyJwtValidator::new(

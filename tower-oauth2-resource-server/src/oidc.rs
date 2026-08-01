@@ -22,10 +22,7 @@ pub(crate) struct OidcDiscovery {}
 #[cfg_attr(test, automock)]
 impl OidcDiscovery {
     #[cfg_attr(test, allow(dead_code))]
-    pub async fn discover(
-        issuer: &str,
-        http_client: Client,
-    ) -> Result<OidcConfig, Box<dyn Error>> {
+    pub async fn discover(issuer: &str, http_client: Client) -> Result<OidcConfig, Box<dyn Error>> {
         let issuer_url = Url::parse(issuer)?;
         let paths = get_paths(&issuer_url)?;
         for path in paths {

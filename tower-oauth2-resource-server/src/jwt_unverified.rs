@@ -1,5 +1,3 @@
-use base64::prelude::BASE64_STANDARD_NO_PAD;
-
 #[derive(Debug, Clone)]
 pub struct UnverifiedJwt {
     token: String,
@@ -17,17 +15,14 @@ impl UnverifiedJwt {
     }
 
     pub fn header(&self) -> Option<serde_json::Value> {
-        let header_b64 = self.token.split('.').nth(0)?;
-        let header_bytes = base64::Engine::decode(&BASE64_STANDARD_NO_PAD, header_b64).ok()?;
-        let header_str = String::from_utf8(header_bytes).ok()?;
-        serde_json::from_str(&header_str).ok()?
+        let header = jsonwebtoken::decode_header(self.as_str()).ok()?;
+        serde_json::to_value(header).ok()
     }
 
     pub fn claims(&self) -> Option<serde_json::Value> {
-        let claims_b64 = self.token.split('.').nth(1)?;
-        let claims_bytes = base64::Engine::decode(&BASE64_STANDARD_NO_PAD, claims_b64).ok()?;
-        let claims_str = String::from_utf8(claims_bytes).ok()?;
-        serde_json::from_str(&claims_str).ok()?
+        jsonwebtoken::dangerous::insecure_decode::<serde_json::Value>(self.as_str())
+            .ok()
+            .map(|token| token.claims)
     }
 }
 

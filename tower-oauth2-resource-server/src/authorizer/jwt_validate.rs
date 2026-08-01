@@ -55,11 +55,9 @@ where
 
         let jwk_alg = match jwk_info.alg {
             Some(jwk_alg) => {
-                if let Some(jwk_alg) = parse_jwk_alg(&jwk_alg) {
-                    Some(jwk_alg)
-                } else {
-                    return Err(AuthError::InvalidJwkAlgorithm(jwk_alg));
-                }
+                let jwk_alg = Algorithm::try_from(jwk_alg)
+                    .map_err(|_| AuthError::InvalidJwkAlgorithm(jwk_alg))?;
+                Some(jwk_alg)
             }
             None => None,
         };
@@ -136,21 +134,6 @@ fn create_validation(alg: &Algorithm, claims_validation: &ClaimsValidationSpec) 
     }
     validation.set_required_spec_claims(&required_claims);
     validation
-}
-
-fn parse_jwk_alg(key_alg: &KeyAlgorithm) -> Option<Algorithm> {
-    match key_alg {
-        KeyAlgorithm::RS256 => Some(Algorithm::RS256),
-        KeyAlgorithm::RS384 => Some(Algorithm::RS384),
-        KeyAlgorithm::RS512 => Some(Algorithm::RS512),
-        KeyAlgorithm::PS256 => Some(Algorithm::PS256),
-        KeyAlgorithm::PS384 => Some(Algorithm::PS384),
-        KeyAlgorithm::PS512 => Some(Algorithm::PS512),
-        KeyAlgorithm::ES256 => Some(Algorithm::ES256),
-        KeyAlgorithm::ES384 => Some(Algorithm::ES384),
-        KeyAlgorithm::EdDSA => Some(Algorithm::EdDSA),
-        _ => None,
-    }
 }
 
 impl OnlyJwtValidatorInner {

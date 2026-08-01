@@ -158,7 +158,7 @@ impl OnlyJwtValidatorInner {
 
     fn parse_jwk(&self, jwk: &Jwk) -> Result<(String, JwkData), JwkError> {
         let key_id = jwk.common.key_id.as_ref().ok_or(JwkError::MissingKeyId)?;
-        let decoding_key = DecodingKey::from_jwk(jwk).map_err(|_| JwkError::DecodingFailed)?;
+        let decoding_key = DecodingKey::try_from(jwk).map_err(|_| JwkError::DecodingFailed)?;
         let alg = jwk.common.key_algorithm;
         Ok((key_id.clone(), JwkData { decoding_key, alg }))
     }

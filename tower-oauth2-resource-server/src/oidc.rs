@@ -23,18 +23,19 @@ pub(crate) struct OidcDiscovery {}
 impl OidcDiscovery {
     #[cfg_attr(test, allow(dead_code))]
     pub async fn discover(
-        issuer_url: &Url,
+        issuer: &str,
         http_client: Client,
     ) -> Result<OidcConfig, Box<dyn Error>> {
-        let paths = get_paths(issuer_url)?;
+        let issuer_url = Url::parse(issuer)?;
+        let paths = get_paths(&issuer_url)?;
         for path in paths {
             if let Ok(response) = http_client.get(path).send().await
                 && let Ok(oidc_config) = response.json::<OidcConfig>().await
             {
-                if oidc_config.issuer != issuer_url.as_str() {
+                if oidc_config.issuer != issuer {
                     return Err(format!(
                         "OIDC issuer mismatch: expected {}, got {}",
-                        issuer_url, oidc_config.issuer
+                        issuer, oidc_config.issuer
                     )
                     .into());
                 }
@@ -199,26 +200,38 @@ mod tests {
         let issuer_url = mock_server.uri().parse::<Url>().unwrap();
         mock_discovery_document(&mock_server, issuer_url.as_str()).await;
 
-        let result = OidcDiscovery::discover(&issuer_url, Client::new()).await;
+        let result = OidcDiscovery::discover(issuer_url.as_str(), Client::new()).await;
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap().issuer, issuer_url.as_str());
     }
 
     #[tokio::test]
+    async fn test_discover_accepts_root_issuer_without_trailing_slash() {
+        let mock_server = MockServer::start().await;
+        let issuer = mock_server.uri();
+        mock_discovery_document(&mock_server, &issuer).await;
+
+        let result = OidcDiscovery::discover(&issuer, Client::new()).await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().issuer, issuer);
+    }
+
+    #[tokio::test]
     async fn test_discover_rejects_mismatched_issuer() {
         let mock_server = MockServer::start().await;
-        let issuer_url = mock_server.uri().parse::<Url>().unwrap();
+        let issuer = mock_server.uri();
         mock_discovery_document(&mock_server, "https://other-issuer.example.com").await;
 
-        let result = OidcDiscovery::discover(&issuer_url, Client::new()).await;
+        let result = OidcDiscovery::discover(&issuer, Client::new()).await;
 
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
             format!(
                 "OIDC issuer mismatch: expected {}, got https://other-issuer.example.com",
-                issuer_url
+                issuer
             )
         );
     }

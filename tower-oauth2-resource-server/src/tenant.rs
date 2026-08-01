@@ -65,7 +65,7 @@ impl TenantConfiguration {
     /// - `https://authorization-server.com/.well-known/oauth-authorization-server/issuer`
     ///
     /// The discovered provider configuration must contain an `issuer` value that
-    /// exactly matches `issuer_url`; otherwise startup will fail.
+    /// exactly matches the configured `issuer_url`; otherwise startup will fail.
     ///
     /// A consequence of the self-configuration is that the authorization server
     /// must be available when the middleware is started.
@@ -187,7 +187,7 @@ impl TenantConfigurationBuilder {
             None => self.issuer_url.clone(),
         };
 
-        let issuer_url = Url::parse(&self.issuer_url)
+        Url::parse(&self.issuer_url)
             .map_err(|_| StartupError::InvalidParameter("Invalid issuer_url format".to_string()))?;
 
         let jwks_url = self
@@ -210,7 +210,7 @@ impl TenantConfigurationBuilder {
             None
         } else {
             Some(
-                OidcDiscovery::discover(&issuer_url, http_client.clone())
+                OidcDiscovery::discover(&self.issuer_url, http_client.clone())
                     .await
                     .map_err(|e| StartupError::OidcDiscoveryFailed(e.to_string()))?,
             )

@@ -50,4 +50,4 @@ jobs:
     if: ${{ github.event.pull_request.head.repo.full_name == 'Dunklas/tower-oauth2-resource-server' }}
     needs: [verify, build-stable, build-msrv]
     steps:
-      - uses: DeviesDevelopment/workflow-timer@v0.3.1
+      - uses: DeviesDevelopment/workflow-timer@v0.3.2

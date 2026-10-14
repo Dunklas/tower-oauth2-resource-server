@@ -134,7 +134,8 @@ where
     }
 
     fn call(&mut self, request: Request<ReqBody>) -> Self::Future {
-        let inner = self.inner.clone();
+        let clone = self.inner.clone();
+        let inner = std::mem::replace(&mut self.inner, clone);
         let authorize = self.authorize(request);
 
         ResponseFuture {

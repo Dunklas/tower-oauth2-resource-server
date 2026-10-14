@@ -34,7 +34,7 @@ bytes = "1.12.1"
 jsonwebtoken = { version = "11.1.0", default-features = false, features = ["use_pem"] }
 lazy_static = "1.5.1"
 mockall = "0.15.0"
-tower = { workspace = true, features = ["util"] }
+tower = { workspace = true, features = ["util", "limit"] }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 wiremock = "0.6.5"
 
